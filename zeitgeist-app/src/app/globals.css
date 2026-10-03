@@ -195,3 +195,31 @@
 .cfo-message-input::-webkit-scrollbar-button { display: none; }
 
 .brand-nebula { background: radial-gradient(ellipse at 80% 40%, #116ea329, transparent 55%), radial-gradient(ellipse at 20% 80%, #284e9829, transparent 60%); }
+
+/* Keep the desktop introduction within a laptop viewport without clipping content. */
+@media (min-width: 1024px) {
+  .landing-hero { min-height: min(620px, calc(100svh - 84px)); }
+}
+.brand-nebula { animation: nebula-drift 12s ease-in-out infinite alternate; }
+.brand-orbit { position: absolute; width: 320px; height: 320px; border-radius: 50%; filter: blur(65px); opacity: .16; pointer-events: none; }
+.brand-orbit-one { top: 5%; left: 5%; background: #2563eb; animation: orbit-drift 14s ease-in-out infinite alternate; }
+.brand-orbit-two { bottom: 5%; right: 8%; background: #16bfcf; animation: orbit-drift 17s ease-in-out -7s infinite alternate-reverse; }
+.preview-float { animation: preview-float 6s ease-in-out infinite; }
+.preview-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: preview-draw 7s ease-in-out infinite; }
+.preview-beacon { animation: preview-beacon 3s ease-in-out infinite; }
+.preview-beacon-delayed { animation-delay: 1.5s; }
+@keyframes nebula-drift { to { transform: scale(1.12) translate(2%, -2%); opacity: .7; } }
+@keyframes orbit-drift { to { transform: translate(100px, 50px) scale(1.2); } }
+@keyframes preview-float { 50% { transform: translateY(-7px); } }
+@keyframes preview-draw { 0%, 8% { stroke-dashoffset: 1; } 65%, 100% { stroke-dashoffset: 0; } }
+@keyframes preview-beacon { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+section:has([data-motion-paused="true"]) .brand-nebula,
+section:has([data-motion-paused="true"]) .brand-orbit,
+section:has([data-motion-paused="true"]) .preview-float,
+section:has([data-motion-paused="true"]) .preview-line,
+section:has([data-motion-paused="true"]) .preview-beacon { animation-play-state: paused; }
+section:has([data-motion-paused="true"]) .preview-line { stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .brand-nebula, .brand-orbit, .preview-float, .preview-line, .preview-beacon { animation: none; }
+  .preview-line { stroke-dashoffset: 0; }
+}

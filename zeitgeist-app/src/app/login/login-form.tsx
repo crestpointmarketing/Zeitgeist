@@ -80,9 +80,9 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
 
   return (
     <div className="w-full max-w-md">
-      <div className="mb-8">
-        <div className="lg:hidden"><Brand/></div>
-        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white">
+      <div className="auth-form-intro mb-5 text-center">
+        <div className="mb-5 flex justify-center lg:hidden"><Brand/></div>
+        <h1 className="text-3xl font-semibold tracking-tight text-white">
           {mode === "reset" ? "Reset your password." : mode === "signin" ? "Welcome back." : "Make room for clarity."}
         </h1>
         <p className="mt-2 text-[15px] text-muted-foreground">
@@ -92,14 +92,14 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
         </p>
       </div>
 
-      <div className="app-panel p-6 sm:p-8">
+      <div className="app-panel p-5 sm:p-6">
         {!isSupabaseConfigured && (
           <p className="mb-4 rounded-xl bg-yellow-500/10 px-4 py-3 text-[13px] text-yellow-300">
             Sign-in is temporarily unavailable. Please try again later.
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <label className="block text-sm font-medium" htmlFor="email">Email address</label>
           <input
             id="email"
@@ -147,7 +147,7 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
         </form>
       </div>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-4 text-center text-sm text-muted-foreground">
         {mode === "signin" ? (
           <>
             New to Zeitgeist?{" "}
