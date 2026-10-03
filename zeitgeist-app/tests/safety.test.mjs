@@ -612,3 +612,128 @@ test('ordinary HTTP 429 remains retryable rate limiting, not permanent quota exh
   assert.equal(errors.isQuotaExceededError('Too many requests'), false);
   assert.equal(errors.isRateLimitError('Too many requests', 429), true);
 });
+
+
+function forecastFixture(qualified = true) {
+  const end = Date.parse('2026-10-02T00:00:00Z');
+  const day = t => new Date(t).toISOString().slice(0, 10);
+  return {
+    version: 'fork-trees-v1', fork_commit: '33266732b0b16188b565e0aeb6b24efa71161f6a', ticker: 'AAPL',
+    source: 'DSA / Yahoo Finance (adjusted)', currency: 'USD', generated_at: '2026-10-03T12:00:00Z',
+    as_of: day(end), history_start: '2023-10-01', history_bars: 755, data_hash: '0123456789abcdef',
+    horizon_sessions: 5, last_close: 100, target_date: '2026-10-09', qualified,
+    forecast: qualified ? { price: 101, return_pct: 1 } : null,
+    backtest: { model: { mae_pp: qualified ? 0 : 1, rmse_pp: qualified ? 0 : 1 }, flat: { mae_pp: 1, rmse_pp: 1 }, drift: { mae_pp: 2, rmse_pp: 2 },
+      direction_hit_pct: qualified ? 100 : 0, direction_samples: 30,
+      windows: Array.from({length:30}, (_, i) => ({ origin: day(end - (30 - i)*5*86400000), target: day(end - (29 - i)*5*86400000), training_labels_through: day(end - (30 - i)*5*86400000), model_return_pct: qualified ? 1 : 0, actual_return_pct: 1, drift_return_pct: 3 })) },
+    simulation: Array.from({length:5}, (_, i) => ({ date: `2026-10-${String(i + 5).padStart(2,'0')}`, p10: 95-i, p50: 100+i, p90: 105+i })),
+  };
+}
+const forecasts = load('src/lib/forecast-schema.ts');
+const forecastNow = Date.parse('2026-10-03T13:00:00Z');
+
+test('forecast validation verifies observed errors, baseline gate and target price arithmetic', () => {
+  assert.equal(forecasts.parseForecast(forecastFixture(), 'AAPL', forecastNow).qualified, true);
+  assert.equal(forecasts.parseForecast(forecastFixture(false), 'AAPL', forecastNow).forecast, null);
+  for (const change of [r => r.backtest.model.mae_pp = .9, r => r.backtest.flat.rmse_pp = 0, r => r.forecast.price = 999, r => r.qualified = false, r => r.backtest.direction_hit_pct = 50]) {
+    const report = forecastFixture(); change(report);
+    assert.throws(() => forecasts.parseForecast(report, 'AAPL', forecastNow));
+  }
+});
+
+test('forecast rejects leaked labels, overlapping tests, stale reports and unordered scenarios', () => {
+  for (const change of [r => r.ticker = 'TSLA', r => r.generated_at = '2026-10-01T00:00:00Z', r => r.backtest.windows[0].training_labels_through = '2026-10-01', r => r.backtest.windows[2].origin = r.backtest.windows[0].origin, r => r.simulation[1].p10 = 999, r => r.simulation[1].date = r.as_of, r => r.simulation[4].date = '2026-10-10']) {
+    const report = forecastFixture(); change(report);
+    assert.throws(() => forecasts.parseForecast(report, 'AAPL', forecastNow));
+  }
+});
+
+test('experiment UI withholds unqualified price forecast while exposing baselines and simulation limitations', () => {
+  const React = dependency('react'), { renderToStaticMarkup } = dependency('react-dom/server');
+  const { ForecastResults } = load('src/components/forecast-lab.tsx');
+  const html = renderToStaticMarkup(React.createElement(ForecastResults, { report: forecastFixture(false) }));
+  assert.match(html, /No model forecast published/);
+  assert.doesNotMatch(html, /Experimental target:/);
+  assert.match(html, /Unchanged price/);
+  assert.match(html, /not a calibrated confidence interval/);
+  assert.match(html, /not a point-in-time trading simulation/);
+  assert.match(html, /Apache-2.0/);
+  const passed = renderToStaticMarkup(React.createElement(ForecastResults, { report: forecastFixture() }));
+  assert.match(passed, /Experimental target:/);
+});
+
+test('forecast endpoint requires auth and validates before reserving market-data budget', async () => {
+  const guards = access(null); let calls = 0;
+  const denied = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
+  assert.equal((await denied.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"AAPL"}'}))).status, 503);
+  assert.equal(calls, 0);
+  const route = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{}}), reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
+  assert.equal((await route.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"INVALID"}'}))).status, 400);
+  assert.equal(calls, 0);
+});
+
+test('forecast uses stock quota and releases its lease on success and failure', async () => {
+  for (const fail of [false, true]) {
+    let released = 0, feature, symbol;
+    const guards = access(null);
+    const route = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{}}), reserveUsage: async (_, f) => {feature=f; return async () => {released++;};} }, '@/lib/forecast-provider': { getForecast: async s => {symbol=s;if(fail)throw new Error('private provider detail');return forecastFixture();} } });
+    const response = await route.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"aapl","trees":999999}'}));
+    assert.equal(feature, 'stock'); assert.equal(symbol, 'AAPL'); assert.equal(released, 1);
+    assert.equal(response.status, fail ? 500 : 200);
+    assert.doesNotMatch(await response.text(), /private provider detail/);
+  }
+});
+
+test('forecast transport cannot leak tokens over remote HTTP or follow redirects', async () => {
+  let calls = 0;
+  const base = { 'server-only': {}, '@/lib/supabase/server': {createClient: async () => null} };
+  const unsafe = load('src/lib/forecast-provider.ts', { ...base, __env: { DSA_BASE_URL:'http://remote.example', DSA_SERVICE_TOKEN:'secret' }, __fetch: async () => {calls++;} });
+  await assert.rejects(unsafe.getForecast('AAPL'), /secure connection/); assert.equal(calls,0);
+  const safe = load('src/lib/forecast-provider.ts', { ...base, __env: { DSA_BASE_URL:'https://internal.example', DSA_SERVICE_TOKEN:'secret' }, __fetch: async (_, options) => { assert.equal(options.headers.Authorization,'Bearer secret'); assert.equal(options.redirect,'error');return new Response('',{status:429}); } });
+  await assert.rejects(safe.getForecast('AAPL'), /worker is busy/);
+});
+
+
+test('structured analysis grammar preserves required fields and local size/reference validation', () => {
+  const grammar = schema.analysisOutputSchema();
+  assert.equal(grammar.type, 'object');
+  assert.ok(grammar.required.includes('summary'));
+  assert.equal(grammar.additionalProperties, false);
+  assert.ok(grammar.properties.technical_analysis.properties.support_levels.description.includes('maxItems: 3'));
+  assert.throws(() => schema.parseAnalysis({ ...valid, technical_analysis: { ...valid.technical_analysis, support_levels: [1,2,3,4] } }, stock, undefined, 'test'));
+});
+
+
+test('AI request uses JSON schema without expanding output budget or retrying truncated completions', async () => {
+  for (const stopped of [false, true]) {
+    let options, request, calls = 0;
+    class FakeAnthropic {
+      constructor(value) { options = value; }
+      messages = { create: async value => { request = value; calls++; return { stop_reason: stopped ? 'max_tokens' : 'end_turn', content: [{type:'text',text:JSON.stringify(valid)}] }; } };
+    }
+    const ai = load('src/lib/anthropic.ts', {'@anthropic-ai/sdk':FakeAnthropic,__env:{ANTHROPIC_API_KEY:'unit-test',ANTHROPIC_MODEL:'claude-sonnet-5-5'}});
+    if (stopped) await assert.rejects(ai.analyzeStockData(stock), /output limit/);
+    else assert.equal((await ai.analyzeStockData(stock)).ticker, stock.ticker);
+    assert.equal(request.output_config.format.type,'json_schema');
+    assert.equal(request.output_config.format.schema.type,'object');
+    assert.equal(options.maxRetries,0); assert.equal(request.max_tokens,2500); assert.equal(calls,1);
+  }
+});
+
+test('daily AI denial explains reset time without calling provider or changing usage', async () => {
+  const guards = access(null); let generated = 0;
+  const snapshots = {select:()=>snapshots,eq:()=>snapshots,gt:()=>snapshots,maybeSingle:async()=>({data:{payload:snapshot}})};
+  const usage = {select:()=>usage,eq:()=>usage,maybeSingle:async()=>({data:{used:10}})};
+  const service = load('src/lib/stock-service.ts', {'server-only':{}, '@/lib/polygon':{},
+    '@/lib/api-access':{...guards,reserveUsage:async()=>{throw new guards.RequestError('Request limit reached.',429);}},
+    '@/lib/supabase/admin':{createAdminClient:()=>({from:name=>name==='api_usage'?usage:snapshots})},
+    '@/lib/anthropic':{ANALYSIS_MODEL:'test',analyzeStockData:async()=>{generated++;}},
+    '@/lib/generation-cache':{fingerprint:JSON.stringify,claimGeneration:async()=>({state:'claimed',finish:async()=>{}})},
+  });
+  await assert.rejects(service.analyzeSnapshot({supabase:{},user:{id:'test-user'}},'id'), error => error.status === 429 && /Daily AI analysis limit reached \(10\/10\).*Resets at/.test(error.message));
+  assert.equal(generated,0);
+  const React=dependency('react'), {renderToStaticMarkup}=dependency('react-dom/server');
+  const {AnalysisUnavailable}=load('src/components/analysis-unavailable.tsx');
+  const html=renderToStaticMarkup(React.createElement(AnalysisUnavailable,{error:'Daily AI analysis limit reached (10/10).',ticker:'TSLA',onRetry:()=>{}}));
+  assert.doesNotMatch(html,/Retry analysis/);
+});

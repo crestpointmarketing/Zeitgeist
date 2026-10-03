@@ -52,7 +52,11 @@ const analysisSchema = z.object({
 /** Identity and unprovided financial facts cannot be invented by the model. */
 export function parseAnalysis(raw: unknown, stock: StockData, company: CompanyDetails | undefined, model: string, news?: NewsEvidence, financials?: FinancialEvidence): StockAnalysis {
   const parsed = analysisSchema.safeParse(raw);
-  if (!parsed.success) throw new Error('AI analysis is incomplete or invalid');
+  if (!parsed.success) {
+    // Log only field paths/codes, never provider text or private source content.
+    console.error('Analysis validation failed', parsed.error.issues.map(issue => ({ path: issue.path.join('.'), code: issue.code })));
+    throw new Error('AI analysis is incomplete or invalid');
+  }
   const result = parsed.data;
   if (result.financial_analysis.some(item => {
     if (!financials || financials.status !== 'ready') return true;
@@ -83,4 +87,24 @@ export function parseAnalysis(raw: unknown, stock: StockData, company: CompanyDe
     },
     key_metrics: { market_cap: company?.market_cap },
   };
+}
+
+
+/** Provider grammar supports a subset; all stronger checks still run locally. */
+export function analysisOutputSchema(): Record<string, unknown> {
+  const unsupported = new Set(['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength', 'maxItems', 'pattern', '$schema']);
+  function visit(node: unknown): unknown {
+    if (Array.isArray(node)) return node.map(visit);
+    if (!node || typeof node !== 'object') return node;
+    const original = node as Record<string, unknown>;
+    const clean: Record<string, unknown> = {};
+    const descriptions: string[] = [];
+    for (const [key, value] of Object.entries(original)) {
+      if (unsupported.has(key)) { if (key !== '$schema') descriptions.push(`${key}: ${value}`); }
+      else clean[key] = visit(value);
+    }
+    if (descriptions.length) clean.description = [clean.description, ...descriptions].filter(Boolean).join('; ');
+    return clean;
+  }
+  return visit(z.toJSONSchema(analysisSchema)) as Record<string, unknown>;
 }

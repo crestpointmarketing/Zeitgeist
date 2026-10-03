@@ -68,6 +68,20 @@ The portable release summary is in [DELIVERY.md](DELIVERY.md). Detailed local ac
 
 The Python service is not part of a serverless Next.js bundle. In production, supervise it separately, keep it internal, and use HTTPS for a remote DSA URL. Store all provider keys in hosting secrets. The bridge `/health` endpoint checks process readiness only, not Yahoo or AI availability. Scheduled reports and email notifications are not enabled.
 
-A successful build and local live tests do not certify deployment configuration. Before public launch, verify deployed Supabase redirect URLs and email delivery, host-specific request timeouts, database backups, provider usage rights, and quota/cost monitoring. The free news tier can still throttle bursts. Yahoo financials are normalized provider data, not audited filing extraction. No prediction notebook or backtested accuracy claim is shipped.
+A successful build and local live tests do not certify deployment configuration. Before public launch, verify deployed Supabase redirect URLs and email delivery, host-specific request timeouts, database backups, provider usage rights, and quota/cost monitoring. The free news tier can still throttle bursts. Yahoo financials are normalized provider data, not audited filing extraction. No original notebook accuracy claim is shipped; the separate experimental model lab displays its own retrospective test results and limitations.
 
 `npm audit` currently reports five high-severity findings in the development-only Next ESLint → fast-glob → micromatch → braces chain. The registry's latest braces release is still affected; no compatible patched version was available during acceptance. Do not downgrade Next to the audit tool's suggested older major. Production-only audit is recorded separately. Recheck when upstream publishes a patch.
+
+## Experimental model lab (second fork)
+
+The research page's **Model lab** tab runs an opt-in five-session experiment adapted from your Stock-Prediction-Models fork: Random Forest + Extra Trees and separate Monte Carlo scenarios. See [source attribution and exact protocol](integrations/prediction/PROVENANCE.md). Update the bridge environment with `python -m pip install -r integrations/dsa/requirements.txt` and restart the combined services.
+
+It fetches a longer independent DSA history, verifies USD US-listed securities, runs 30 chronological test windows, compares two simple baselines, and withholds the tree price forecast if the baseline gate fails. The Monte Carlo band is an illustrative distribution, not calibrated confidence. Existing prices and AI research do not wait for this experiment. It consumes one existing market-data quota reservation and no AI quota.
+
+Run `python -m unittest discover -s integrations/prediction -p test_forecast.py` using the integration virtual environment, in addition to the existing test commands. There is no database migration, trading execution, scheduler or automatic model promotion. The old notebook accuracy figures and TensorFlow models are not reproduced as validated results.
+
+## AI output and quota diagnostics
+
+Analysis now requests schema-constrained JSON using Anthropic `output_config.format`, while retaining local size, numeric and source-reference checks. See [Anthropic structured-output documentation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs). Stronger constraints unsupported by the provider grammar remain enforced locally. No automatic paid retry is added and the 2,500 output-token ceiling remains. An override model without JSON-schema support can set `ANTHROPIC_STRUCTURED_OUTPUTS=false`; local validation remains mandatory.
+
+The fixed schema is additional request overhead beyond the 20,000-character evidence prompt cap. Truncated outputs are rejected explicitly. A failed schema check logs field paths and issue codes, not the response content. AI errors are displayed prominently without hiding market data. When the existing database quota denies a request and this user's daily count is at least 10, the UI reports the next UTC reset and does not offer an immediate ineffective retry. This explanatory threshold matches the existing quota migration; change both together if revising that migration. No usage counters are reset by the application.

@@ -22,6 +22,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 cache = OrderedDict()
 lock = threading.Lock()
 financials_lock = threading.Lock()
+forecast_lock = threading.Lock()
 cache_lock = threading.Lock()
 
 
@@ -40,13 +41,18 @@ def financials(ticker: str, authorization: str = Header('')):
     return run_request(ticker, 30, authorization, 'financials')
 
 
+@app.get('/v1/forecast/{ticker}')
+def forecast(ticker: str, authorization: str = Header('')):
+    return run_request(ticker, 1100, authorization, 'forecast')
+
+
 def run_request(ticker, days, authorization, kind):
     if not hmac.compare_digest(authorization, 'Bearer ' + TOKEN):
         raise HTTPException(401, 'Unauthorized')
     if not ticker.isascii() or not ticker.isalpha() or not 1 <= len(ticker) <= 5 or ticker != ticker.upper():
         raise HTTPException(400, 'Invalid US symbol')
     # Bound upstream concurrency; avoid unbounded work after client timeouts.
-    worker_lock = lock if kind == 'history' else financials_lock
+    worker_lock = {'history': lock, 'financials': financials_lock, 'forecast': forecast_lock}[kind]
     if not worker_lock.acquire(timeout=1):
         raise HTTPException(429, 'Market data worker is busy')
     try:
@@ -56,9 +62,9 @@ def run_request(ticker, days, authorization, kind):
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            script = 'worker.py' if kind == 'history' else 'financials_worker.py'
+            script = {'history': 'worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py'}[kind]
             result = subprocess.run([sys.executable, str(Path(__file__).with_name(script)), str(REPO), ticker, str(days)],
-                                    capture_output=True, text=True, encoding='utf-8', timeout=25 if kind == 'history' else 10, cwd=REPO)
+                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'financials': 10, 'forecast': 45}[kind], cwd=REPO)
             if result.returncode:
                 raise HTTPException(502, 'Upstream market data unavailable')
             payload = json.loads(result.stdout)

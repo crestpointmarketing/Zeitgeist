@@ -63,6 +63,21 @@ export async function analyzeSnapshot(account: Account, id: string) {
     return { status: 'ready' as const, analysis, cached: false };
   } catch (error) {
     await claim.finish(null).catch(() => {}); // lease expiry is the crash fallback
-    throw error;
+    if (error instanceof RequestError && error.status === 429) {
+      const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+      // Explain this user's daily denial without altering quotas or granting an override.
+      let used = 0;
+      try {
+        const usage = await admin.from('api_usage').select('used').eq('scope', account.user.id)
+          .eq('feature', 'analysis:day').eq('window_start', today.toISOString()).maybeSingle();
+        used = usage.data?.used ?? 0;
+      } catch { /* A failed explanation lookup cannot bypass the original denial. */ }
+      if (used >= 10) {
+        const reset = new Date(today.getTime() + 86400000).toISOString();
+        throw new RequestError(`Daily AI analysis limit reached (${used}/10). Resets at ${reset}. Prices and the model lab remain available.`, 429);
+      }
+    }
+    if (error instanceof RequestError) throw error;
+    throw new RequestError('AI analysis could not be completed or did not pass validation. Your market data is available; retry analysis separately.', 502);
   } finally { await release?.(); }
 }

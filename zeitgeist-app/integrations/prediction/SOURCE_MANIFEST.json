@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/crestpointmarketing/Stock-Prediction-Models",
+  "commit": "33266732b0b16188b565e0aeb6b24efa71161f6a",
+  "license": "Apache-2.0",
+  "files": {
+    "stacking/stack-encoder-ensemble-xgb.ipynb": "6e03f9f7b12b6f62412a8c32e834adcb52feaf7dfd4753d8226c1b2bfb512e6e",
+    "simulation/monte-carlo-drift.ipynb": "d5f5dd836becc047362c0adc1fb674c1fc5d1ff3b76618cf1d1f29366ea189fb"
+  }
+}

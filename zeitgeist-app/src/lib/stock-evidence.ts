@@ -3,7 +3,7 @@ import { sessionDate } from './quote';
 import type { FinancialEvidence } from './financial-evidence';
 import type { NewsEvidence } from './news-evidence';
 
-export const PROMPT_VERSION = 'daily-evidence-v6-statements';
+export const PROMPT_VERSION = 'daily-evidence-v7-structured';
 export const CALCULATION_VERSION = 'session-close-v2';
 export interface StockSnapshot {
   stock_data: StockData;

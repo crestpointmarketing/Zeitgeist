@@ -72,8 +72,7 @@ Set `MARKET_DATA_PROVIDER=polygon`, keep the existing Polygon key, and restart N
 No database migration or data deletion is required. Older calculation-version snapshots must be refreshed.
 
 Financial statements and per-user watchlists are now implemented. Background research jobs and scheduled notifications remain outside the current local release.
-The Stock-Prediction-Models fork remains research material: no notebook, training job, accuracy claim or price forecast
-from that repository has been added to production. Any experiment needs chronological out-of-sample evaluation first.
+The Stock-Prediction-Models adaptation is now available through the opt-in Model lab described below. It uses chronological out-of-sample evaluation and withholds a tree forecast when it fails both baseline comparisons. Original notebooks and TensorFlow training jobs are not deployed.
 
 ## Local acceptance — 2026-10-03
 
@@ -212,3 +211,7 @@ modification, paid subscription change or online deployment was performed.
 After installing the Python requirements and configuring the two environment files, `npm run dev:all` or `npm run start:all` from the application root starts both services. Production startup requires `npm run build` first. The launcher searches `integrations/dsa/.venv`, then the configured DSA checkout's `.venv-zeitgeist`; `DSA_PYTHON` overrides this with an explicit executable. It verifies configuration without printing secrets, refuses occupied ports, waits for `/health`, and stops its own children together. A remote HTTPS bridge is left under its own supervisor.
 
 The dated acceptance sections above record incremental stages. For the latest full validation, see `reports/PROJECT-COMPLETION-2026-10-03.html` in the app root.
+
+## Optional forecast endpoint
+
+`GET /v1/forecast/{ticker}` now calls the separate fork-adapted prediction worker. It requires the same bearer token, validates US USD metadata and at least 400 complete sessions, uses its own single-worker lock, a 45-second subprocess deadline and a one-hour cache. See `../prediction/PROVENANCE.md` for licensing and evaluation. It does not extend the public history endpoint's day range or change normal price snapshots. Update the pinned requirements before restarting.
