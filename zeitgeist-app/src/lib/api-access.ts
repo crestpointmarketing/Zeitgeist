@@ -45,6 +45,11 @@ export async function reserveUsage(
   supabase: Awaited<ReturnType<typeof requireAccount>>['supabase'],
   feature: 'analysis' | 'chat' | 'stock',
 ) {
+  // Fetch current server-verified account metadata, never user-editable metadata
+  // or a cached session claim. Administrators may exempt individual accounts.
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new RequestError('Sign in to use this feature.', 401);
+  if (user.app_metadata?.quota_exempt === true) return async () => {};
   const { data, error } = await supabase.rpc('reserve_api_usage', { feature });
   // Missing migration / database outage must never bypass the budget.
   if (error || !data) throw new RequestError('Usage controls are unavailable. Please try later.', 503);

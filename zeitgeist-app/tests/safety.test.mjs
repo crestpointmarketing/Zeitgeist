@@ -99,8 +99,33 @@ test('anonymous traffic cannot reach provider or reserve usage', async () => {
 
 test('missing migration and exhausted budget fail closed', async () => {
   const { reserveUsage } = access(null);
-  await assert.rejects(reserveUsage({ rpc: async () => ({ error: { code: 'missing' } }) }, 'chat'), /unavailable/);
-  await assert.rejects(reserveUsage({ rpc: async () => ({ data: { allowed: false } }) }, 'analysis'), /limit reached/);
+  const auth = { getUser: async () => ({ data: { user: { id: 'ordinary' } } }) };
+  await assert.rejects(reserveUsage({ auth, rpc: async () => ({ error: { code: 'missing' } }) }, 'chat'), /unavailable/);
+  await assert.rejects(reserveUsage({ auth, rpc: async () => ({ data: { allowed: false } }) }, 'analysis'), /limit reached/);
+});
+
+test('only current admin-managed metadata exempts all usage budgets', async () => {
+  const { reserveUsage } = access(null);
+  let user = { id: 'demo', app_metadata: { quota_exempt: true } };
+  let authError = null;
+  let calls = 0;
+  const client = {
+    auth: { getUser: async () => ({ data: { user }, error: authError }) },
+    rpc: async () => { calls++; return { data: { allowed: false } }; },
+  };
+  for (const feature of ['analysis', 'chat', 'stock']) await (await reserveUsage(client, feature))();
+  assert.equal(calls, 0);
+  // Revocation takes effect without refreshing the session. User metadata cannot grant exemption.
+  user = { id: 'demo', app_metadata: { quota_exempt: false }, user_metadata: { quota_exempt: true } };
+  await assert.rejects(reserveUsage(client, 'analysis'), /limit reached/);
+  user = { id: 'demo', app_metadata: { quota_exempt: 'true' } };
+  await assert.rejects(reserveUsage(client, 'analysis'), /limit reached/);
+  assert.equal(calls, 2);
+  user = { id: 'demo', app_metadata: { quota_exempt: true } }; authError = new Error('expired');
+  await assert.rejects(reserveUsage(client, 'analysis'), /Sign in/);
+  user = null; authError = null;
+  await assert.rejects(reserveUsage(client, 'analysis'), /Sign in/);
+  assert.equal(calls, 2);
 });
 
 test('provider failure releases concurrency lease but never refunds daily usage', async () => {
