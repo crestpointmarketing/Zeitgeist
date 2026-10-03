@@ -85,9 +85,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
     }
 
     return () => {
-      if (canvasRef.current) {
-        resizeObserver.unobserve(canvasRef.current);
-      }
+      resizeObserver.disconnect();
     };
   }, [
     starDensity,

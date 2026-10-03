@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,19 +24,39 @@ export function ChatComposer({
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const resize = () => {
+      el.style.height = 'auto';
+      const limit = compact ? 96 : 160;
+      el.style.height = `${Math.max(44, Math.min(el.scrollHeight, limit))}px`;
+      el.style.overflowY = el.scrollHeight > limit ? 'auto' : 'hidden';
+    };
+    resize();
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth !== width) {
+        width = el.clientWidth;
+        resize();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [value, compact]);
+
   const submit = () => {
     const text = value.trim();
     if (!text || streaming || disabled) return;
     onSend(text);
     setValue("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   return (
     <div
       className={cn(
-        "flex items-end gap-2 rounded-3xl border border-white/10 bg-[#2c2c2e] px-4 py-2",
-        "focus-within:border-[#0071e3]/60"
+        "flex items-end gap-2 rounded-2xl border border-input bg-card px-4 py-3",
+        "focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15"
       )}
     >
       <textarea
@@ -45,21 +65,18 @@ export function ChatComposer({
         autoFocus={autoFocus}
         disabled={disabled}
         rows={1}
+        maxLength={4000}
         placeholder="Ask the CFO anything about money…"
-        onChange={(e) => {
-          setValue(e.target.value);
-          const el = e.target;
-          el.style.height = "auto";
-          el.style.height = `${Math.min(el.scrollHeight, compact ? 96 : 160)}px`;
-        }}
+        aria-label="Message to AI CFO"
+        onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             submit();
           }
         }}
         className={cn(
-          "max-h-40 flex-1 resize-none bg-transparent py-1.5 text-white placeholder:text-neutral-500 focus:outline-none",
+          "cfo-message-input min-w-0 min-h-11 max-h-40 flex-1 resize-none overflow-y-hidden bg-transparent py-2.5 leading-6 text-white placeholder:text-muted-foreground focus:outline-none",
           compact ? "text-sm" : "text-[15px]"
         )}
       />
@@ -67,7 +84,7 @@ export function ChatComposer({
         <button
           onClick={onStop}
           aria-label="Stop generating"
-          className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105"
+          className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105"
         >
           <Square className="h-3.5 w-3.5 fill-current" />
         </button>
@@ -77,7 +94,7 @@ export function ChatComposer({
           disabled={!value.trim() || disabled}
           aria-label="Send message"
           className={cn(
-            "mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0071e3] text-white transition-all hover:bg-[#0077ed]",
+            "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition-all hover:bg-blue-700",
             "disabled:cursor-not-allowed disabled:opacity-40"
           )}
         >

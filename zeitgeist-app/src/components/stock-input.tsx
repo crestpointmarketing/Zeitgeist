@@ -32,6 +32,7 @@ interface StockInputProps {
   className?: string;
   showSuggestions?: boolean;
   autoFocus?: boolean;
+  selectedTicker?: string;
 }
 
 interface ValidationState {
@@ -47,7 +48,8 @@ export function StockInput({
   disabled = false,
   className,
   showSuggestions = true,
-  autoFocus = false
+  autoFocus = false,
+  selectedTicker = ""
 }: StockInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [validation, setValidation] = useState<ValidationState>({
@@ -56,7 +58,11 @@ export function StockInput({
     formattedValue: ''
   });
   const [showDropdown, setShowDropdown] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState(POPULAR_STOCKS);
+  // Derive suggestions from the displayed value, including values selected by mouse/keyboard.
+  const query = inputValue.trim().toLowerCase();
+  const filteredSuggestions = POPULAR_STOCKS.filter(stock =>
+    !query || stock.symbol.toLowerCase().includes(query) || stock.name.toLowerCase().includes(query)
+  );
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +86,11 @@ export function StockInput({
     };
   }, []);
 
+  useEffect(() => {
+    setInputValue(selectedTicker);
+    setValidation(validateInput(selectedTicker));
+  }, [selectedTicker, validateInput]);
+
   // Handle input change
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -89,21 +100,8 @@ export function StockInput({
     const validationResult = validateInput(value);
     setValidation(validationResult);
 
-    // Filter suggestions based on input
-    if (showSuggestions && value.trim()) {
-      const filtered = POPULAR_STOCKS.filter(stock =>
-        stock.symbol.toLowerCase().includes(value.toLowerCase()) ||
-        stock.name.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
-      setShowDropdown(filtered.length > 0);
-      setHighlightedIndex(-1);
-    } else if (showSuggestions && !value.trim()) {
-      setFilteredSuggestions(POPULAR_STOCKS);
-      setShowDropdown(false);
-    } else {
-      setShowDropdown(false);
-    }
+    setShowDropdown(showSuggestions);
+    setHighlightedIndex(-1);
   }, [validateInput, showSuggestions]);
 
   // Handle search submission
@@ -118,7 +116,7 @@ export function StockInput({
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (showDropdown && highlightedIndex >= 0) {
+      if (showDropdown && highlightedIndex >= 0 && filteredSuggestions[highlightedIndex]) {
         // Select highlighted suggestion
         const selectedStock = filteredSuggestions[highlightedIndex];
         setInputValue(selectedStock.symbol);
@@ -144,29 +142,26 @@ export function StockInput({
 
   // Handle suggestion selection
   const handleSuggestionClick = useCallback((stock: typeof POPULAR_STOCKS[0]) => {
+    inputRef.current?.focus();
     setInputValue(stock.symbol);
     setValidation(validateInput(stock.symbol));
     setShowDropdown(false);
     setHighlightedIndex(-1);
-    inputRef.current?.focus();
   }, [validateInput]);
 
   // Handle input focus
   const handleFocus = useCallback(() => {
-    if (showSuggestions && !inputValue.trim()) {
+    if (showSuggestions) {
       setShowDropdown(true);
     }
-  }, [showSuggestions, inputValue]);
+  }, [showSuggestions]);
 
-  // Handle input blur
-  const handleBlur = useCallback(() => {
-    // Delay hiding dropdown to allow for suggestion clicks
-    setTimeout(() => {
-      if (!dropdownRef.current?.contains(document.activeElement)) {
-        setShowDropdown(false);
-        setHighlightedIndex(-1);
-      }
-    }, 150);
+  // Close only when focus leaves the entire search widget; no stale blur timer.
+  const handleBlur = useCallback((event: React.FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setShowDropdown(false);
+      setHighlightedIndex(-1);
+    }
   }, []);
 
   // Clear input
@@ -186,12 +181,12 @@ export function StockInput({
   }, [autoFocus]);
 
   return (
-    <div className={cn("relative w-full max-w-md", className)}>
+    <div className={cn("relative w-full max-w-md", className)} onBlur={handleBlur}>
       {/* Input Container */}
       <div className="relative">
         <div
           className={cn(
-            "relative flex items-center w-full rounded-full border border-input bg-background text-sm",
+            "relative flex items-center gap-1 w-full terminal-search rounded-full border border-input p-1.5 text-sm",
             "transition-colors focus-within:border-[#0071e3] focus-within:ring-2 focus-within:ring-[#0071e3]/40",
             validation.error && inputValue && "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
             validation.isValid && "border-[#0071e3]",
@@ -199,21 +194,27 @@ export function StockInput({
           )}
         >
           {/* Search Icon */}
-          <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+          <Search className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
 
           {/* Input Field */}
           <input
             ref={inputRef}
             type="text"
+            aria-label="Stock symbol"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={showSuggestions && showDropdown}
+            aria-controls="stock-suggestions"
+            aria-activedescendant={showDropdown && highlightedIndex >= 0 ? `stock-suggestion-${highlightedIndex}` : undefined}
+            aria-invalid={Boolean(validation.error && inputValue)}
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
-            onBlur={handleBlur}
             placeholder={placeholder}
             disabled={disabled || isLoading}
             className={cn(
-              "flex-1 pl-10 pr-32 py-3 bg-transparent placeholder:text-muted-foreground placeholder:normal-case placeholder:tracking-normal",
+              "min-w-0 w-full flex-1 px-2 py-2.5 bg-transparent text-foreground placeholder:text-muted-foreground placeholder:normal-case placeholder:tracking-normal",
               "focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
               "text-sm font-medium tracking-wide uppercase"
             )}
@@ -227,21 +228,21 @@ export function StockInput({
           {inputValue && !isLoading && (
             <button
               onClick={handleClear}
-              className="absolute right-28 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear stock symbol"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               disabled={disabled}
               type="button"
             >
               <X className="h-4 w-4" />
             </button>
           )}
-        </div>
 
         {/* Search Button */}
         <button
           onClick={handleSearch}
           disabled={!validation.isValid || isLoading || disabled}
           className={cn(
-            "absolute right-1.5 top-1.5 bottom-1.5 px-5 rounded-full",
+            "h-10 shrink-0 px-3 sm:px-5 rounded-full",
             "bg-[#0071e3] text-white hover:bg-[#0077ed]",
             "disabled:opacity-50 disabled:cursor-not-allowed",
             "transition-all duration-200 ease-in-out",
@@ -256,6 +257,7 @@ export function StockInput({
           )}
           {!isLoading && "Analyze"}
         </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -269,6 +271,9 @@ export function StockInput({
       {showSuggestions && showDropdown && (
         <div
           ref={dropdownRef}
+          id="stock-suggestions"
+          role="listbox"
+          aria-label="Stock suggestions"
           className={cn(
             "absolute top-full mt-2 w-full bg-popover border border-border rounded-2xl shadow-lg z-50",
             "max-h-60 overflow-y-auto"
@@ -279,6 +284,9 @@ export function StockInput({
               {filteredSuggestions.map((stock, index) => (
                 <button
                   key={stock.symbol}
+                  id={`stock-suggestion-${index}`}
+                  role="option"
+                  aria-selected={index === highlightedIndex}
                   onClick={() => handleSuggestionClick(stock)}
                   className={cn(
                     "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground",

@@ -165,7 +165,7 @@ const NOT_FOUND_PATTERNS = [
 /**
  * Detects if an error indicates quota exceeded (more specific than rate limiting)
  */
-export function isQuotaExceededError(error: Error | string, _statusCode?: number): boolean {
+export function isQuotaExceededError(error: Error | string): boolean {
   const message = typeof error === 'string' ? error : error.message;
   return QUOTA_EXCEEDED_PATTERNS.some(pattern => pattern.test(message));
 }
@@ -175,7 +175,7 @@ export function isQuotaExceededError(error: Error | string, _statusCode?: number
  */
 export function isRateLimitError(error: Error | string, statusCode?: number): boolean {
   // First check if it's a quota error - those take precedence
-  if (isQuotaExceededError(error, statusCode)) {
+  if (isQuotaExceededError(error)) {
     return false;
   }
   
@@ -245,7 +245,7 @@ export function classifyError(error: Error | string, statusCode?: number, servic
   const message = typeof error === 'string' ? error : error.message;
   const actualStatusCode = statusCode || 500;
   
-  if (isQuotaExceededError(error, statusCode)) {
+  if (isQuotaExceededError(error)) {
     return new QuotaExceededError(service || 'API');
   }
   

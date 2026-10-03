@@ -1,4 +1,5 @@
-import axios from 'axios';
+import { sessionDate, stockFromBars, type DailyBar } from './quote';
+import axios, { type AxiosResponse } from 'axios';
 import { format, subDays } from 'date-fns';
 import { 
   StockData, 
@@ -9,26 +10,56 @@ import {
 import { validateStockTicker } from '@/lib/stock-utils';
 
 const POLYGON_BASE_URL = 'https://api.polygon.io';
-const API_KEY = process.env.POLYGON_API_KEY;
-
-if (!API_KEY) {
-  throw new Error('POLYGON_API_KEY environment variable is required');
+export class MarketDataError extends Error {
+  constructor(message: string, public status: number) { super(message); }
 }
-
-// Create axios instance with default config
-const polygonAPI = axios.create({
-  baseURL: POLYGON_BASE_URL,
-  timeout: 10000, // 10 second timeout
-  params: {
-    apikey: API_KEY,
+// Short, bounded cache also shares in-flight requests across searches in this process.
+const marketCache = new Map<string, { expires: number; promise: Promise<AxiosResponse> }>();
+let cacheCredential: string | undefined;
+const polygonAPI = {
+  get(path: string, config?: Parameters<ReturnType<typeof axios.create>['get']>[1]) {
+    const apiKey = process.env.POLYGON_API_KEY;
+    if (!apiKey) throw new MarketDataError('Market data is not configured.', 503);
+    if (cacheCredential !== apiKey) { marketCache.clear(); cacheCredential = apiKey; }
+    const key = path + JSON.stringify(config?.params ?? {});
+    const cached = marketCache.get(key);
+    if (cached && cached.expires > Date.now()) return cached.promise;
+    const ttl = path.includes('marketstatus') ? 60_000 : 300_000;
+    const promise = axios.create({ baseURL: POLYGON_BASE_URL, timeout: 10000,
+      headers: { Authorization: `Bearer ${apiKey}` } }).get(path, config).catch(error => {
+      marketCache.delete(key);
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 429) throw new MarketDataError('Market data request limit reached. Wait one minute, then try again.', 429);
+      if (status === 403) throw new MarketDataError('Your market data plan does not include this data.', 403);
+      if (status === 401) throw new MarketDataError('Market data credentials are invalid.', 503);
+      if (status === 404) throw new MarketDataError('No market data was found for this stock symbol.', 404);
+      throw new MarketDataError('Market data is temporarily unavailable. Please try again.', 502);
+    });
+    if (marketCache.size >= 128) marketCache.delete(marketCache.keys().next().value!);
+    marketCache.set(key, { expires: Date.now() + ttl, promise });
+    return promise;
   },
-});
+};
+
+/** Independent of the selected price provider; at most five seconds of snapshot latency. */
+export async function getPolygonNews(ticker: string): Promise<unknown> {
+  const response = await polygonAPI.get('/v2/reference/news', {
+    timeout: 5000,
+    params: { ticker, limit: 10, sort: 'published_utc', order: 'desc',
+      'published_utc.gte': sessionDate(Date.now() - 7 * 86400000) },
+  });
+  return response.data;
+}
 
 /**
  * Fetches the latest stock data for a given ticker symbol
  * Uses the previous trading day's data as "current" price
  */
 export async function getStockData(ticker: string): Promise<StockData> {
+  return (await getStockQuote(ticker)).stockData;
+}
+
+async function getStockQuote(ticker: string, days = 30): Promise<{stockData: StockData; priceHistory: StockPriceData[]}> {
   try {
     const formattedTicker = ticker.toUpperCase().trim();
     
@@ -46,49 +77,35 @@ export async function getStockData(ticker: string): Promise<StockData> {
 
     const result = response.data.results[0];
     
-    // Calculate change and change percentage
-    const currentPrice = result.c; // close price
-    const previousClose = result.o; // open price (previous day's close)
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
+    // Compare two completed sessions; the opening price is not a previous close.
+    const end = sessionDate(result.t);
+    const start = format(subDays(new Date(result.t), Math.max(days, 30)), 'yyyy-MM-dd');
+    const [history, market] = await Promise.all([
+      polygonAPI.get(`/v2/aggs/ticker/${formattedTicker}/range/1/day/${start}/${end}`, {
+        params: { adjusted: 'true', sort: 'asc', limit: 500 },
+      }),
+      polygonAPI.get('/v1/marketstatus/now').catch(() => null),
+    ]);
+    const bars: DailyBar[] = history.data.results ?? [];
+    // /prev can timestamp the close while /range timestamps midnight on that same date.
+    const prior = bars.filter(bar => sessionDate(bar.t) < end).sort((a, b) => b.t - a.t)[0];
+    if (!prior) throw new Error('Previous trading session is unavailable');
+    const marketStatus: StockData['market_status'] = market?.data.market === 'open' ? 'open'
+      : market?.data.market === 'extended-hours' || market?.data.earlyHours || market?.data.afterHours ? 'extended-hours'
+      : market?.data.market === 'closed' ? 'closed' : 'unknown';
+    const stockData = stockFromBars(formattedTicker, result, prior, marketStatus);
 
-    // Get current market status (simplified - could be enhanced with real-time data)
-    const now = new Date();
-    const marketHours = now.getHours();
-    const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
-    const marketStatus = isWeekday && marketHours >= 9 && marketHours < 16 ? 'open' : 'closed';
-
-    const stockData: StockData = {
-      ticker: formattedTicker,
-      name: formattedTicker, // Will be enriched with company details
-      market: 'stocks',
-      locale: 'us',
-      primary_exchange: 'NASDAQ', // Default - could be enhanced
-      type: 'CS', // Common Stock
-      
-      price: currentPrice,
-      previous_close: previousClose,
-      change: change,
-      change_percent: changePercent,
-      
-      volume: result.v,
-      volume_weighted_average_price: result.vw,
-      
-      open: result.o,
-      high: result.h,
-      low: result.l,
-      
-      timestamp: result.t,
-      updated: new Date().toISOString(),
-      
-      market_status: marketStatus,
-      currency: 'USD',
-    };
-
-    return stockData;
+    const cutoff = format(subDays(new Date(), days), 'yyyy-MM-dd');
+    const priceHistory = bars.filter(bar => bar.t <= result.t && sessionDate(bar.t) >= cutoff)
+      .sort((a, b) => a.t - b.t).map(bar => ({
+        open: bar.o, high: bar.h, low: bar.l, close: bar.c, volume: bar.v,
+        timestamp: bar.t, date: sessionDate(bar.t), vwap: bar.vw,
+      }));
+    return { stockData, priceHistory };
     
   } catch (error) {
-    console.error('Error fetching stock data:', error);
+    if (error instanceof MarketDataError) throw error;
+    console.error('Error fetching stock data');
     
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
@@ -148,7 +165,7 @@ export async function getStockHistory(ticker: string, days: number = 30): Promis
       close: item.c,
       volume: item.v,
       timestamp: item.t,
-      date: format(new Date(item.t), 'yyyy-MM-dd'),
+      date: sessionDate(item.t),
       vwap: item.vw,
       transactions: item.n,
     }));
@@ -156,7 +173,8 @@ export async function getStockHistory(ticker: string, days: number = 30): Promis
     return priceData;
     
   } catch (error) {
-    console.error('Error fetching stock history:', error);
+    if (error instanceof MarketDataError) throw error;
+    console.error('Error fetching stock history');
     
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
@@ -196,6 +214,7 @@ export async function getCompanyDetails(ticker: string): Promise<CompanyDetails>
     const result = response.data.results;
     
     const companyDetails: CompanyDetails = {
+      source: 'Polygon.io company reference', primary_exchange: result.primary_exchange,
       ticker: formattedTicker,
       name: result.name || formattedTicker,
       description: result.description,
@@ -222,7 +241,8 @@ export async function getCompanyDetails(ticker: string): Promise<CompanyDetails>
     return companyDetails;
     
   } catch (error) {
-    console.error('Error fetching company details:', error);
+    if (error instanceof MarketDataError) throw error;
+    console.error('Error fetching company details');
     
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
@@ -257,7 +277,7 @@ export function createAPIError(message: string, statusCode?: number, details?: s
 /**
  * Enhanced function that combines stock data with company details
  */
-export async function getCompleteStockInfo(ticker: string): Promise<{ stockData: StockData; companyDetails: CompanyDetails }> {
+export async function getCompleteStockInfo(ticker: string, days = 30): Promise<{ stockData: StockData; companyDetails: CompanyDetails; priceHistory: StockPriceData[] }> {
   try {
     // Validate ticker first
     const validation = validateStockTicker(ticker);
@@ -266,19 +286,21 @@ export async function getCompleteStockInfo(ticker: string): Promise<{ stockData:
     }
 
     // Fetch both stock data and company details in parallel
-    const [stockData, companyDetails] = await Promise.all([
-      getStockData(validation.formattedTicker),
+    const [quote, companyDetails] = await Promise.all([
+      getStockQuote(validation.formattedTicker, days),
       getCompanyDetails(validation.formattedTicker),
     ]);
 
+    const { stockData, priceHistory } = quote;
     // Enrich stock data with company name
     stockData.name = companyDetails.name;
     stockData.market_cap = companyDetails.market_cap;
     stockData.shares_outstanding = companyDetails.weighted_shares_outstanding;
 
-    return { stockData, companyDetails };
+    return { stockData, companyDetails, priceHistory };
     
   } catch (error) {
+    if (error instanceof MarketDataError) throw error;
     throw new Error(`Failed to fetch complete stock info: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

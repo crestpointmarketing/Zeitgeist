@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 276 256" fill="none">
+  <defs>
+    <linearGradient id="bar" x1="12" y1="20" x2="246" y2="210" gradientUnits="userSpaceOnUse"><stop stop-color="#00e8ed"/><stop offset=".5" stop-color="#009eff"/><stop offset="1" stop-color="#0750f5"/></linearGradient>
+    <linearGradient id="arrow" x1="106" y1="42" x2="165" y2="227" gradientUnits="userSpaceOnUse"><stop stop-color="#38f5f3"/><stop offset=".48" stop-color="#00d9f1"/><stop offset="1" stop-color="#0089ff"/></linearGradient>
+    <linearGradient id="edge" x1="80" y1="54" x2="174" y2="225" gradientUnits="userSpaceOnUse"><stop stop-color="#a1ffff"/><stop offset="1" stop-color="#00baff" stop-opacity=".2"/></linearGradient>
+  </defs>
+  <path d="M38 2H244a5 5 0 0 1 5 5v49H38a27 27 0 0 1 0-54Z" fill="url(#bar)"/>
+  <path d="M8 186h223a27 27 0 0 1 0 54H8a6 6 0 0 1-6-6v-42a6 6 0 0 1 6-6Z" fill="url(#bar)"/>
+  <path d="m3 204 88-97 39 38 80-96 30 23-101 128-40-36-59 75H8a6 6 0 0 1-6-6Z" fill="#006de7"/>
+  <path d="m3 203 79-98q6-8 12-1l32 33 79-88-19-7q-6-3 1-6l53-17q6-2 6 4v54q0 8-5 3l-17-17-90 104q-6 7-12 1l-34-33L15 228q-4 5-12 8Z" fill="url(#arrow)" stroke="url(#edge)" stroke-width="2" stroke-linejoin="round"/>
+</svg>

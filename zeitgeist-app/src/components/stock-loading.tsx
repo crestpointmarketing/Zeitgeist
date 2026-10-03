@@ -134,7 +134,7 @@ export function StockLoading({
 
         {/* Analysis sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          {['Key Metrics', 'Risk Assessment', 'Price Targets', 'Recommendation'].map((title, i) => (
+          {['Key Metrics', 'Risk Assessment', 'Price Targets', 'Recommendation'].map((title) => (
             <div key={title} className="space-y-2">
               <div className="h-4 bg-muted animate-pulse rounded w-24" />
               <div className="space-y-1">

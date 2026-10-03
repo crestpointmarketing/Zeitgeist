@@ -7,6 +7,7 @@ export interface Conversation {
 }
 
 export interface DbMessage {
+  client_message_id?: string | null;
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -25,7 +26,7 @@ export function uiMessageText(message: UIMessage | undefined): string {
 /** Convert stored DB rows into UIMessages for useChat's initial state. */
 export function uiMessagesFromDb(rows: DbMessage[]): UIMessage[] {
   return rows.map((row) => ({
-    id: row.id,
+    id: row.client_message_id ? (row.role === 'user' ? row.client_message_id : row.client_message_id + ':assistant') : row.id,
     role: row.role,
     parts: [{ type: 'text', text: row.content }],
   }));

@@ -30,7 +30,7 @@ export interface StockData {
   updated: string;
   
   // Market status
-  market_status: 'open' | 'closed' | 'extended-hours';
+  market_status: 'open' | 'closed' | 'extended-hours' | 'unknown';
   
   // Additional metadata
   currency?: string;
@@ -40,6 +40,8 @@ export interface StockData {
 
 // Company details interface for additional stock information
 export interface CompanyDetails {
+  source?: string;
+  primary_exchange?: string;
   ticker: string;
   name: string;
   description?: string;
@@ -99,6 +101,7 @@ export interface StockPriceData {
 
 // GPT-5 stock analysis response interface
 export interface StockAnalysis {
+  evidence?: import('@/lib/stock-evidence').StockSnapshot['evidence'];
   // Analysis metadata
   ticker: string;
   company_name: string;
@@ -120,14 +123,14 @@ export interface StockAnalysis {
   };
   
   fundamental_analysis: {
-    valuation: 'UNDERVALUED' | 'FAIRLY_VALUED' | 'OVERVALUED';
+    valuation: 'UNDERVALUED' | 'FAIRLY_VALUED' | 'OVERVALUED' | 'UNAVAILABLE';
     financial_health: string;
     growth_prospects: string;
     competitive_position: string;
   };
   
   sentiment_analysis: {
-    market_sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    market_sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'UNAVAILABLE';
     news_sentiment: string;
     social_sentiment?: string;
   };
@@ -138,9 +141,9 @@ export interface StockAnalysis {
   
   // Price targets and timeline
   price_targets: {
-    short_term: number; // 1-3 months
-    medium_term: number; // 3-12 months
-    long_term: number; // 1+ years
+    short_term: number | null; // 1-3 months
+    medium_term: number | null; // 3-12 months
+    long_term: number | null; // 1+ years
   };
   
   // Key metrics and ratios mentioned
@@ -153,6 +156,8 @@ export interface StockAnalysis {
   
   // Additional insights
   catalysts: string[];
+  financial_analysis?: Array<{ summary: string; period_end: string; statement?: 'income' | 'balance_sheet' | 'cash_flow' }>;
+  news_analysis?: Array<{ summary: string; source_ids: string[] }>;
   concerns: string[];
   comparable_companies?: string[];
   

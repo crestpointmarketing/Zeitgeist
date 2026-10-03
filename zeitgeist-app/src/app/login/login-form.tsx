@@ -1,22 +1,23 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { useSearchParams } from "next/navigation";
-import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
-type Mode = "signin" | "signup";
+import { safeRedirectPath } from '@/lib/auth-redirect';
+
+type Mode = "signin" | "signup" | "reset";
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/cfo";
+  const next = safeRedirectPath(searchParams.get("next"));
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get("error") === "auth_callback" ? "This sign-in link is invalid or expired. Please request a new link." : null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -27,7 +28,7 @@ export default function LoginForm() {
 
     const supabase = createClient();
     if (!supabase) {
-      setError("Accounts aren't set up yet — Supabase isn't configured.");
+      setError("Sign-in is temporarily unavailable. Please try again later.");
       return;
     }
 
@@ -41,6 +42,10 @@ export default function LoginForm() {
         if (error) throw error;
         // Full navigation so the server sees the new session cookie.
         window.location.assign(next);
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/callback?next=%2Freset-password` });
+        if (error) throw error;
+        setNotice('If an account exists for this address, a password reset link will arrive shortly. Open it in this browser.');
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -66,43 +71,41 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600">
-            <TrendingUp className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-semibold text-white">Zeitgeist</span>
-        </Link>
+    <div className="w-full max-w-md">
+      <div className="mb-8">
+        <div className="lg:hidden"><Brand/></div>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white">
-          {mode === "signin" ? "Sign in" : "Create your account"}
+          {mode === "reset" ? "Reset your password." : mode === "signin" ? "Welcome back." : "Make room for clarity."}
         </h1>
-        <p className="mt-2 text-[15px] text-neutral-400">
-          {mode === "signin"
-            ? "Chat with your AI CFO and pick up where you left off."
-            : "Your conversations with the AI CFO, saved in one place."}
+        <p className="mt-2 text-[15px] text-muted-foreground">
+          {mode === "reset" ? "We’ll send a link to your email address." : mode === "signin"
+            ? "Return to your research and financial conversations."
+            : "One account for stock research and your AI CFO."}
         </p>
       </div>
 
-      <div className="rounded-3xl bg-[#1d1d1f] p-6">
+      <div className="app-panel p-6 sm:p-8">
         {!isSupabaseConfigured && (
           <p className="mb-4 rounded-xl bg-yellow-500/10 px-4 py-3 text-[13px] text-yellow-300">
-            Accounts aren&apos;t configured yet. Add the Supabase environment
-            variables to enable sign-in.
+            Sign-in is temporarily unavailable. Please try again later.
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block text-sm font-medium" htmlFor="email">Email address</label>
           <input
+            id="email"
             type="email"
             required
             autoComplete="email"
-            placeholder="Email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:border-[#0071e3] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
+            className="app-field"
           />
+          {mode !== "reset" && <><label className="block text-sm font-medium" htmlFor="password">Password</label>
           <input
+            id="password"
             type="password"
             required
             minLength={6}
@@ -110,17 +113,19 @@ export default function LoginForm() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:border-[#0071e3] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
+            className="app-field"
           />
 
-          {error && <p className="text-[13px] text-red-400">{error}</p>}
-          {notice && <p className="text-[13px] text-[#2997ff]">{notice}</p>}
+          </>}
+          {mode === "signin" && <button type="button" disabled={busy} className="text-sm text-primary hover:underline" onClick={() => { setMode("reset"); setError(null); setNotice(null); }}>Forgot password?</button>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {notice && <p role="status" className="text-sm text-primary">{notice}</p>}
 
           <button
             type="submit"
             disabled={busy || !isSupabaseConfigured}
             className={cn(
-              "w-full rounded-full bg-[#0071e3] py-3 text-[15px] font-medium text-white transition-colors hover:bg-[#0077ed]",
+              "app-button w-full",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
@@ -128,22 +133,23 @@ export default function LoginForm() {
               ? "One moment…"
               : mode === "signin"
                 ? "Sign in"
-                : "Create account"}
+                : mode === "reset" ? "Send reset link" : "Create account"}
           </button>
         </form>
       </div>
 
-      <p className="mt-6 text-center text-sm text-neutral-400">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         {mode === "signin" ? (
           <>
             New to Zeitgeist?{" "}
             <button
+              disabled={busy}
               onClick={() => {
                 setMode("signup");
                 setError(null);
                 setNotice(null);
               }}
-              className="text-[#2997ff] hover:underline"
+              className="text-primary hover:underline"
             >
               Create an account
             </button>
@@ -152,12 +158,13 @@ export default function LoginForm() {
           <>
             Already have an account?{" "}
             <button
+              disabled={busy}
               onClick={() => {
                 setMode("signin");
                 setError(null);
                 setNotice(null);
               }}
-              className="text-[#2997ff] hover:underline"
+              className="text-primary hover:underline"
             >
               Sign in
             </button>

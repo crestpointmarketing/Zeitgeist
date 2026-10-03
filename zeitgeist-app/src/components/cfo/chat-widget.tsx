@@ -30,7 +30,7 @@ const ChatThread = dynamic(
   }
 );
 
-const WIDGET_CONVERSATION_KEY = "cfo:conversationId";
+import { lastConversation, rememberConversation } from '@/lib/conversation-handoff';
 
 /**
  * Floating AI CFO chat: a button on every page that opens a small panel,
@@ -43,40 +43,33 @@ export function ChatWidget() {
   const [authReady, setAuthReady] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  // Check auth only when the panel opens — keeps closed-widget pages idle
-  // and loads the Supabase client on demand.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    import("@/lib/supabase/client").then(({ createClient }) => {
-      const supabase = createClient();
-      if (!supabase) return;
-      supabase.auth.getUser().then(({ data }) => {
+    setAuthReady(false); setConversationId(null);
+    async function resolve() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const result = await createClient()?.auth.getUser();
         if (cancelled) return;
-        setUser(data.user ?? null);
-        setAuthReady(true);
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
+        const account = result?.data.user ?? null;
+        setUser(account);
+        if (account) {
+          const id = lastConversation(account.id) || crypto.randomUUID();
+          rememberConversation(account.id, id); setConversationId(id);
+        }
+      } catch { if (!cancelled) setUser(null); }
+      finally { if (!cancelled) setAuthReady(true); }
+    }
+    void resolve();
+    return () => { cancelled = true; };
   }, [open]);
 
-  // Adopt the widget's last conversation (shared with /cfo) on first open.
-  useEffect(() => {
-    if (open && !conversationId) {
-      const stored = sessionStorage.getItem(WIDGET_CONVERSATION_KEY);
-      const id = stored || crypto.randomUUID();
-      sessionStorage.setItem(WIDGET_CONVERSATION_KEY, id);
-      setConversationId(id);
-    }
-  }, [open, conversationId]);
-
-  const messages = useConversationMessages(open && user ? conversationId : null);
+  const { messages, error: loadError, retry: retryLoad } = useConversationMessages(open && user ? conversationId : null);
 
   // Hidden until Supabase is configured, and on pages with their own chat/auth UI.
   if (!isSupabaseConfigured) return null;
-  if (pathname.startsWith("/cfo") || pathname.startsWith("/login")) return null;
+  if (pathname === "/" || pathname.startsWith("/stock-analysis") || pathname.startsWith("/cfo") || pathname.startsWith("/login") || pathname.startsWith("/reset-password")) return null;
 
   return (
     <div className="dark">
@@ -86,28 +79,28 @@ export function ChatWidget() {
           className={cn(
             "fixed bottom-24 right-4 z-50 flex flex-col overflow-hidden md:right-6",
             "h-[560px] max-h-[calc(100dvh-8rem)] w-[380px] max-w-[calc(100vw-2rem)]",
-            "rounded-3xl border border-white/10 bg-[#161617] shadow-2xl"
+            "rounded-3xl border border-white/10 bg-sidebar shadow-2xl"
           )}
         >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0071e3]/15">
-                <Landmark className="h-4 w-4 text-[#2997ff]" strokeWidth={1.5} />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600/15">
+                <Landmark className="h-4 w-4 text-primary" strokeWidth={1.5} />
               </div>
               <span className="text-sm font-semibold text-white">AI CFO</span>
             </div>
             <div className="flex items-center gap-1">
               <Link
                 href={conversationId ? `/cfo?c=${conversationId}` : "/cfo"}
-                className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Open full page"
               >
                 <Maximize2 className="h-4 w-4" />
               </Link>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Close chat"
               >
                 <X className="h-4 w-4" />
@@ -122,23 +115,23 @@ export function ChatWidget() {
             </div>
           ) : !user ? (
             <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0071e3]/15">
-                <Landmark className="h-6 w-6 text-[#2997ff]" strokeWidth={1.5} />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600/15">
+                <Landmark className="h-6 w-6 text-primary" strokeWidth={1.5} />
               </div>
               <h3 className="mt-4 text-base font-semibold text-white">
                 Meet your AI CFO
               </h3>
-              <p className="mt-1 text-[13px] text-neutral-400">
+              <p className="mt-1 text-[13px] text-muted-foreground">
                 Sign in to ask financial questions and keep your conversations.
               </p>
               <Link
                 href={`/login?next=${encodeURIComponent(pathname)}`}
-                className="mt-5 rounded-full bg-[#0071e3] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0077ed]"
+                className="mt-5 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
                 Sign in
               </Link>
             </div>
-          ) : conversationId && messages !== null ? (
+          ) : loadError ? (<div role="alert" className="p-5 text-sm text-destructive">{loadError}<button className="app-button-secondary mt-4" onClick={retryLoad}>Retry loading messages</button></div>) : conversationId && messages !== null ? (
             <ChatThread
               key={conversationId}
               conversationId={conversationId}
@@ -160,7 +153,7 @@ export function ChatWidget() {
         aria-label={open ? "Close AI CFO chat" : "Open AI CFO chat"}
         className={cn(
           "fixed bottom-6 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full md:right-6",
-          "bg-[#0071e3] text-white shadow-lg shadow-black/40 transition-all hover:scale-105 hover:bg-[#0077ed]"
+          "bg-blue-600 text-white shadow-lg shadow-black/40 transition-all hover:scale-105 hover:bg-blue-700"
         )}
       >
         {open ? (

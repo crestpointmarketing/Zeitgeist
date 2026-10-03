@@ -6,7 +6,6 @@ import {
   RefreshCw, 
   Wifi, 
   Clock, 
-  Shield, 
   Key, 
   Server, 
   Search,
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StockAPIError } from '@/types/stock';
-import { ERROR_TYPES, isRetryableError, classifyError, APIError } from '@/lib/api-errors';
+import { ERROR_TYPES, isRetryableError, classifyError } from '@/lib/api-errors';
 
 interface ErrorDisplayProps {
   error: StockAPIError | Error | string | null;

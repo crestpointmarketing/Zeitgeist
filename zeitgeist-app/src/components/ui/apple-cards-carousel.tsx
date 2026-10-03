@@ -14,7 +14,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
-import { ImageProps } from "next/image";
+import Image, { ImageProps } from "next/image";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 
 interface CarouselProps {
@@ -275,7 +275,9 @@ export const BlurImage = ({
 }: ImageProps) => {
   const [, setLoading] = useState(true);
   return (
-    <img
+    <Image
+      fill={!width && !height}
+      sizes="(max-width: 768px) 224px, 384px"
       className={cn(
         "h-full w-full transition duration-300",
         className,
