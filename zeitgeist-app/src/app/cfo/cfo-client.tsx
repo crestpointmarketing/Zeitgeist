@@ -57,7 +57,7 @@ export default function CfoPageClient() {
 
   return <WorkspaceShell sidebarContent={<ConversationSidebar embedded activeId={activeId} refreshKey={refreshKey} onSelect={selectConversation} onNew={newConversation} onDeleted={id=>{if(id===activeId)newConversation();setRefreshKey(k=>k+1);}}/>}>
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="app-panel flex h-[calc(100dvh-12rem)] min-h-[540px] min-w-0 flex-col overflow-hidden" aria-label="AI CFO conversation">
+      <section className="app-panel flex h-[calc(100dvh-12rem)] min-h-[360px] sm:min-h-[440px] min-w-0 flex-col overflow-hidden" aria-label="AI CFO conversation">
         <header className="flex items-center gap-3 border-b border-border px-5 py-5"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/15 text-primary"><Sparkles size={22}/></span><div><h1 className="text-lg font-semibold">Your AI CFO</h1><p className="mt-1 text-xs text-muted-foreground">A clearer perspective on your financial questions</p></div></header>
         {authError ? <div role="alert" className="p-6">Could not verify your session.<button className="app-button-secondary mt-4" onClick={() => window.location.reload()}>Try again</button></div> : loadError ? <div role="alert" className="p-6 text-sm text-destructive">{loadError}<button className="app-button-secondary mt-4" onClick={retryLoad}>Retry loading messages</button></div> : activeId && messages!==null ? <ChatThread key={activeId} conversationId={activeId} initialMessages={messages} onAssistantFinish={()=>setRefreshKey(k=>k+1)}/> : <div role="status" className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Loading your conversation…</div>}
       </section>

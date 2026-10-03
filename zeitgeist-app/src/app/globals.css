@@ -223,3 +223,34 @@ section:has([data-motion-paused="true"]) .preview-line { stroke-dashoffset: 0; }
   .brand-nebula, .brand-orbit, .preview-float, .preview-line, .preview-beacon { animation: none; }
   .preview-line { stroke-dashoffset: 0; }
 }
+
+/* Narrow layouts keep navigation reachable and content in the document flow. */
+@media (max-width: 639px) {
+  .landing-hero { padding: 28px 16px 64px; gap: 32px; }
+  .landing-hero h1 { font-size: clamp(2rem, 9vw, 2.75rem); }
+  .landing-actions { flex-direction: column; max-width: 320px; margin-inline: auto; }
+  .landing-actions > a { width: 100%; }
+  .auth-card > section { padding-inline: 16px; }
+  .auth-card .app-panel { padding: 16px; }
+  .auth-form-intro h1 { font-size: clamp(1.5rem, 7vw, 1.875rem); }
+  .terminal-header { padding: 12px; column-gap: 8px; row-gap: 12px; }
+  .terminal-header > div:first-of-type { min-width: 0; }
+  .terminal-header a[aria-label="Zeitgeist home"] { gap: 8px; }
+  .terminal-header a[aria-label="Zeitgeist home"] img { width: 32px; height: auto; }
+  .terminal-header a[aria-label="Zeitgeist home"] span.block { font-size: 17px; }
+  .terminal-header a[aria-label="Zeitgeist home"] span.mt-0\.5 { font-size: 8px; }
+  .terminal-header .app-button-secondary { padding-inline: 12px; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .auth-card { max-width: 560px; }
+  .landing-hero { max-width: 720px; }
+}
+@media (max-height: 700px) and (min-width: 1024px) {
+  .auth-card > section { padding-block: 16px; }
+  .auth-card .auth-form-intro { margin-bottom: 12px; }
+  .auth-card form { row-gap: 8px; }
+}
+.research-tabs { scrollbar-width: thin; scrollbar-color: #426281 transparent; }
+.research-tabs::-webkit-scrollbar { height: 4px; }
+.research-tabs::-webkit-scrollbar-thumb { background: #426281; border-radius: 4px; }
+.research-tabs::-webkit-scrollbar-button { display: none; }
