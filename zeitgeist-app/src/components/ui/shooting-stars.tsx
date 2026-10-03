@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useId } from "react";
 
 interface ShootingStar {
   x: number;
@@ -24,17 +24,17 @@ interface ShootingStarsProps {
   className?: string;
 }
 
-const getRandomStartPoint = () => {
+const getRandomStartPoint = (width: number, height: number) => {
   const side = Math.floor(Math.random() * 4);
-  const offset = Math.random() * window.innerWidth;
+  const offset = Math.random() * (side % 2 === 0 ? width : height);
 
   switch (side) {
     case 0:
       return { x: offset, y: 0, angle: 45 };
     case 1:
-      return { x: window.innerWidth, y: offset, angle: 135 };
+      return { x: width, y: offset, angle: 135 };
     case 2:
-      return { x: offset, y: window.innerHeight, angle: 225 };
+      return { x: offset, y: height, angle: 225 };
     case 3:
       return { x: 0, y: offset, angle: 315 };
     default:
@@ -54,6 +54,7 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
   className,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const gradientId = useId();
 
   // Stars are animated imperatively on the SVG so a moving star never
   // triggers a React re-render.
@@ -91,9 +92,9 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
 
         if (
           star.x < -50 ||
-          star.x > window.innerWidth + 50 ||
+          star.x > svg.clientWidth + 50 ||
           star.y < -50 ||
-          star.y > window.innerHeight + 50
+          star.y > svg.clientHeight + 50
         ) {
           star.el.remove();
           stars.splice(i, 1);
@@ -117,12 +118,12 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
     const createStar = () => {
       if (stopped) return;
       if (visible) {
-        const { x, y, angle } = getRandomStartPoint();
+        const { x, y, angle } = getRandomStartPoint(svg.clientWidth, svg.clientHeight);
         const el = document.createElementNS(
           "http://www.w3.org/2000/svg",
           "rect",
         );
-        el.setAttribute("fill", "url(#gradient)");
+        el.setAttribute("fill", `url(#${gradientId})`);
         el.setAttribute("height", String(starHeight));
         svg.appendChild(el);
         stars.push({
@@ -162,7 +163,7 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
       for (const star of stars) star.el.remove();
       stars.length = 0;
     };
-  }, [minSpeed, maxSpeed, minDelay, maxDelay, starWidth, starHeight]);
+  }, [minSpeed, maxSpeed, minDelay, maxDelay, starWidth, starHeight, gradientId]);
 
   return (
     <svg
@@ -170,7 +171,7 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
       className={cn("w-full h-full absolute inset-0", className)}
     >
       <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style={{ stopColor: trailColor, stopOpacity: 0 }} />
           <stop
             offset="100%"

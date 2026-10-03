@@ -193,3 +193,5 @@
 .cfo-message-input::-webkit-scrollbar-thumb { background: #426281; border-radius: 4px; }
 .cfo-message-input::-webkit-scrollbar-track { background: transparent; }
 .cfo-message-input::-webkit-scrollbar-button { display: none; }
+
+.brand-nebula { background: radial-gradient(ellipse at 80% 40%, #116ea329, transparent 55%), radial-gradient(ellipse at 20% 80%, #284e9829, transparent 60%); }

@@ -23,17 +23,23 @@ function pause(signal: AbortSignal) {
 }
 
 export async function fetchAnalysis(snapshotId: string, signal: AbortSignal, request = fetch): Promise<AnalysisResult> {
-  const deadline = Date.now() + 90000;
-  do {
+  const timeout = AbortSignal.timeout(60000);
+  const boundedSignal = AbortSignal.any([signal, timeout]);
+  try { do {
     const data = await responseData(await request('/api/analyze', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snapshot_id: snapshotId }), signal,
+      body: JSON.stringify({ snapshot_id: snapshotId }), signal: boundedSignal,
     }));
     if (data.status === 'ready') return data;
     if (data.status !== 'pending') throw new Error('Unexpected analysis response.');
-    await pause(signal);
-  } while (Date.now() < deadline);
-  throw new Error('Analysis is still processing. Retry shortly; your prices remain available.');
+    await pause(boundedSignal);
+  } while (!boundedSignal.aborted);
+  throw boundedSignal.reason;
+  } catch (error) {
+    if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    if (timeout.aborted) throw new Error('AI analysis took longer than 60 seconds. Your prices are ready. Please retry the analysis shortly.');
+    throw error;
+  }
 }
 
 export async function runStockSearch(ticker: string, signal: AbortSignal, onStock: (data: MarketResult) => void, request = fetch) {

@@ -69,7 +69,7 @@ export function ChatWidget() {
 
   // Hidden until Supabase is configured, and on pages with their own chat/auth UI.
   if (!isSupabaseConfigured) return null;
-  if (pathname === "/" || pathname.startsWith("/stock-analysis") || pathname.startsWith("/cfo") || pathname.startsWith("/login") || pathname.startsWith("/reset-password")) return null;
+  if (pathname === "/" || pathname.startsWith("/stock-analysis") || pathname.startsWith("/cfo") || pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/reset-password")) return null;
 
   return (
     <div className="dark">

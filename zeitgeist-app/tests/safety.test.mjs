@@ -18,7 +18,7 @@ function load(file, mocks = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(js, {
-    exports, console, sessionStorage: mocks.__storage, process: { env: mocks.__env ?? {} }, Date, Intl, Number, Response, TextDecoder, Uint8Array, URL, DOMException, AbortSignal, fetch: mocks.__fetch ?? fetch, setTimeout, clearTimeout,
+    exports, console, sessionStorage: mocks.__storage, process: { env: mocks.__env ?? {} }, Date, Intl, Number, Response, TextDecoder, Uint8Array, URL, DOMException, AbortSignal: mocks.__AbortSignal ?? AbortSignal, fetch: mocks.__fetch ?? fetch, setTimeout, clearTimeout,
     require(name) {
       if (name in mocks) return mocks[name];
       if (name.startsWith('.')) return load(path.resolve(path.dirname(filename), name + '.ts'), mocks);
@@ -220,6 +220,36 @@ for (const state of ['ready', 'pending', 'claimed', 'failure']) test('analysis c
 });
 
 const flow = load('src/lib/stock-flow.ts');
+test('analysis deadline aborts a stalled fetch and preserves caller cancellation semantics', async () => {
+  const timeout = new AbortController();
+  const bounded = load('src/lib/stock-flow.ts', { __AbortSignal: {
+    timeout: milliseconds => { assert.equal(milliseconds, 60000); return timeout.signal; },
+    any: signals => AbortSignal.any(signals),
+  } });
+  const stalled = (_url, { signal }) => new Promise((_resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+  const task = bounded.fetchAnalysis('snapshot', new AbortController().signal, stalled);
+  timeout.abort(new DOMException('Timed out', 'TimeoutError'));
+  await assert.rejects(task, /longer than 60 seconds/);
+  const caller = new AbortController();
+  const cancelled = flow.fetchAnalysis('snapshot', caller.signal, stalled);
+  caller.abort();
+  await assert.rejects(cancelled, { name: 'AbortError' });
+});
+test('analysis deadline stops pending-job polling without a second request', async () => {
+  const timeout = new AbortController();
+  const bounded = load('src/lib/stock-flow.ts', { __AbortSignal: { timeout: () => timeout.signal, any: signals => AbortSignal.any(signals) } });
+  let calls = 0;
+  const task = bounded.fetchAnalysis('snapshot', new AbortController().signal, async () => {
+    calls++;
+    return Response.json({ success: true, data: { status: 'pending' } });
+  });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  timeout.abort();
+  await assert.rejects(task, /longer than 60 seconds/);
+  assert.equal(calls, 1);
+});
 const success = data => Response.json({ success: true, data });
 test('prices publish before deferred AI completes, using only a snapshot ID', async () => {
   let resolveAI, shown = false;

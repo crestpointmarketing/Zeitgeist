@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 import { Brand } from "@/components/brand";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,11 +12,13 @@ import { safeRedirectPath } from '@/lib/auth-redirect';
 
 type Mode = "signin" | "signup" | "reset";
 
-export default function LoginForm() {
+export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 'signup' }) {
   const searchParams = useSearchParams();
-  const next = safeRedirectPath(searchParams.get("next"));
+  const next = safeRedirectPath(searchParams.get("next"), '/stock-analysis');
 
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [showPassword, setShowPassword] = useState(false);
+  const [confirmation, setConfirmation] = useState('');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(searchParams.get("error") === "auth_callback" ? "This sign-in link is invalid or expired. Please request a new link." : null);
@@ -25,6 +29,10 @@ export default function LoginForm() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    if (mode === 'signup' && password !== confirmation) {
+      setError('Passwords do not match. Please check both fields.');
+      return;
+    }
 
     const supabase = createClient();
     if (!supabase) {
@@ -104,17 +112,18 @@ export default function LoginForm() {
             className="app-field"
           />
           {mode !== "reset" && <><label className="block text-sm font-medium" htmlFor="password">Password</label>
-          <input
+          <div className="relative"><input
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             required
-            minLength={6}
+            minLength={mode === 'signup' ? 8 : 6}
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="app-field"
-          />
+            className="app-field pr-14"
+          /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} className="app-icon-button absolute right-1 top-0.5" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div>
+          {mode === 'signup' && <><p className="text-xs text-muted-foreground">Use at least 8 characters.</p><label htmlFor="confirm-password" className="block text-sm font-medium">Confirm password</label><input id="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required minLength={8} value={confirmation} onChange={event => setConfirmation(event.target.value)} className="app-field" placeholder="Repeat your password"/></>}
 
           </>}
           {mode === "signin" && <button type="button" disabled={busy} className="text-sm text-primary hover:underline" onClick={() => { setMode("reset"); setError(null); setNotice(null); }}>Forgot password?</button>}
@@ -142,32 +151,24 @@ export default function LoginForm() {
         {mode === "signin" ? (
           <>
             New to Zeitgeist?{" "}
-            <button
-              disabled={busy}
-              onClick={() => {
-                setMode("signup");
-                setError(null);
-                setNotice(null);
-              }}
+            <Link
+              href={`/signup?next=${encodeURIComponent(next)}`}
               className="text-primary hover:underline"
             >
               Create an account
-            </button>
+            </Link>
           </>
+        ) : mode === 'reset' ? (
+          <button type="button" disabled={busy} className="text-primary hover:underline" onClick={() => { setMode('signin'); setError(null); setNotice(null); }}>Back to sign in</button>
         ) : (
           <>
             Already have an account?{" "}
-            <button
-              disabled={busy}
-              onClick={() => {
-                setMode("signin");
-                setError(null);
-                setNotice(null);
-              }}
+            <Link
+              href={`/login?next=${encodeURIComponent(next)}`}
               className="text-primary hover:underline"
             >
               Sign in
-            </button>
+            </Link>
           </>
         )}
       </p>
