@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "zeitgeist-app",
+      "framework": "nextjs",
+      "bindings": [
+        { "type": "service", "service": "dsa", "format": "url", "env": "DSA_BASE_URL" }
+      ]
+    },
+    "dsa": {
+      "root": "zeitgeist-app",
+      "runtime": "container",
+      "entrypoint": "integrations/dsa/Dockerfile"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}
