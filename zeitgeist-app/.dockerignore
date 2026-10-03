@@ -1,0 +1,11 @@
+**
+!integrations/
+!integrations/dsa/
+!integrations/dsa/*.py
+!integrations/dsa/requirements.txt
+!integrations/dsa/Dockerfile
+!integrations/prediction/
+!integrations/prediction/*.py
+!integrations/prediction/LICENSE
+!integrations/prediction/PROVENANCE.md
+!integrations/prediction/SOURCE_MANIFEST.json

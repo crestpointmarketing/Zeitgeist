@@ -22,6 +22,10 @@ No silent fallback blends their bars. A source outage produces an explicit error
 
 ## Setup
 
+### Cloud container
+
+Build from the `zeitgeist-app` context with `docker build -f integrations/dsa/Dockerfile -t zeitgeist-dsa .`. The image pins the verified DSA source commit, preserves its license, installs the pinned Python dependencies and includes the model-lab adaptation. The Docker context excludes credentials and local reports. Set `DSA_SERVICE_TOKEN` as a runtime secret (at least 32 characters); never pass it as a build argument. The process runs as a non-root user, honors the host's `PORT`, and uses one worker to keep concurrency locks effective. Route HTTPS to the container port and use `/health` for readiness. Set the website's `DSA_BASE_URL` to that HTTPS origin and give it the same token. No Supabase or Anthropic keys are needed in this container. A readiness check alone does not verify live provider access; test authenticated history and forecast requests from the deployment region.
+
 Clone the fork outside this application and check out the verified commit. Create an isolated Python 3.13 environment:
 
 ```powershell
