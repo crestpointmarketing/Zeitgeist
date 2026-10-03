@@ -792,3 +792,39 @@ test('daily AI denial explains reset time without calling provider or changing u
   const html=renderToStaticMarkup(React.createElement(AnalysisUnavailable,{error:'Daily AI analysis limit reached (10/10).',ticker:'TSLA',onRetry:()=>{}}));
   assert.doesNotMatch(html,/Retry analysis/);
 });
+
+test('company search resolves known names and preserves arbitrary ticker input', () => {
+  const { resolveStockQuery } = load('src/lib/stock-search.ts');
+  assert.equal(resolveStockQuery('Tesla'), 'TSLA');
+  assert.equal(resolveStockQuery('Microsoft'), 'MSFT');
+  assert.equal(resolveStockQuery('apple'), 'AAPL');
+  assert.equal(resolveStockQuery('NVDA'), 'NVDA');
+  assert.equal(resolveStockQuery('BRK'), 'BRK');
+  assert.equal(resolveStockQuery(''), '');
+});
+
+test('stock question carries bounded real snapshot context without inventing unavailable analysis', () => {
+  const { stockQuestionText, briefSummary } = load('src/lib/research-brief.ts');
+  const market = { ...snapshot, evidence: { session_date: '2026-09-28', source: 'Test provider', bars: 21, sma5: 100, sma20: null, missing: ['Live quotes'] } };
+  const text = stockQuestionText('Why did it move?', market, null);
+  assert.match(text, /Why did it move/);
+  assert.match(text, /Test provider/);
+  assert.match(text, /2026-09-28/);
+  assert.match(text, /AI analysis unavailable/);
+  assert.match(text, /"sma20":null/);
+  assert.ok(stockQuestionText('x'.repeat(9000), { ...market, news: { articles: [{ title: 'x'.repeat(10000), url: 'https://example.com', published_at: '2026-09-28' }] } }, valid).length <= 4000);
+  assert.equal(briefSummary('Price rose 1.5%. Evidence is limited. A third sentence.'), 'Price rose 1.5%. Evidence is limited.');
+});
+
+test('initial research state renders exactly one search and no premature dashboard', async () => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { StockAnalysisContainer } = load('src/components/stock-analysis-container.tsx', {
+    './workspace-shell': { WorkspaceShell: ({search,children}) => React.createElement('main', null, search, children) },
+    './research-dashboard': { ResearchDashboard: () => { throw new Error('Premature dashboard'); } },
+  });
+  const html = renderToStaticMarkup(React.createElement(StockAnalysisContainer));
+  assert.equal((html.match(/role="combobox"/g)||[]).length,1);
+  assert.match(html,/Explore the market/);
+  assert.doesNotMatch(html,/AI Insight|Price history|Research sections/);
+});

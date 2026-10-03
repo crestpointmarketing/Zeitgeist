@@ -6,23 +6,7 @@ import { cn } from '@/lib/utils';
 import { validateStockTicker } from '@/lib/stock-utils';
 
 // Popular stock symbols for auto-complete suggestions
-const POPULAR_STOCKS = [
-  { symbol: 'AAPL', name: 'Apple Inc.' },
-  { symbol: 'MSFT', name: 'Microsoft Corporation' },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
-  { symbol: 'TSLA', name: 'Tesla Inc.' },
-  { symbol: 'META', name: 'Meta Platforms Inc.' },
-  { symbol: 'NVDA', name: 'NVIDIA Corporation' },
-  { symbol: 'NFLX', name: 'Netflix Inc.' },
-  { symbol: 'DIS', name: 'The Walt Disney Company' },
-  { symbol: 'V', name: 'Visa Inc.' },
-  { symbol: 'JPM', name: 'JPMorgan Chase & Co.' },
-  { symbol: 'JNJ', name: 'Johnson & Johnson' },
-  { symbol: 'WMT', name: 'Walmart Inc.' },
-  { symbol: 'PG', name: 'Procter & Gamble Co.' },
-  { symbol: 'UNH', name: 'UnitedHealth Group Inc.' }
-];
+import { POPULAR_STOCKS, resolveStockQuery } from '@/lib/stock-search';
 
 interface StockInputProps {
   onSearch: (ticker: string) => void;
@@ -78,7 +62,7 @@ export function StockInput({
       };
     }
 
-    const result = validateStockTicker(value);
+    const result = validateStockTicker(resolveStockQuery(value));
     return {
       isValid: result.isValid,
       error: result.error,
@@ -119,6 +103,7 @@ export function StockInput({
       if (showDropdown && highlightedIndex >= 0 && filteredSuggestions[highlightedIndex]) {
         // Select highlighted suggestion
         const selectedStock = filteredSuggestions[highlightedIndex];
+        onSearch(selectedStock.symbol);
         setInputValue(selectedStock.symbol);
         setValidation(validateInput(selectedStock.symbol));
         setShowDropdown(false);
@@ -138,7 +123,7 @@ export function StockInput({
       setShowDropdown(false);
       setHighlightedIndex(-1);
     }
-  }, [showDropdown, highlightedIndex, filteredSuggestions, validateInput, handleSearch]);
+  }, [showDropdown, highlightedIndex, filteredSuggestions, validateInput, handleSearch, onSearch]);
 
   // Handle suggestion selection
   const handleSuggestionClick = useCallback((stock: typeof POPULAR_STOCKS[0]) => {
@@ -186,7 +171,7 @@ export function StockInput({
       <div className="relative">
         <div
           className={cn(
-            "relative flex items-center gap-1 w-full terminal-search rounded-full border border-input p-1.5 text-sm",
+            "relative flex items-center gap-1 w-full terminal-search rounded-xl border border-input p-1.5 text-sm",
             "transition-colors focus-within:border-[#0071e3] focus-within:ring-2 focus-within:ring-[#0071e3]/40",
             validation.error && inputValue && "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
             validation.isValid && "border-[#0071e3]",
@@ -218,7 +203,7 @@ export function StockInput({
               "focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
               "text-sm font-medium tracking-wide uppercase"
             )}
-            maxLength={5}
+            maxLength={80}
             autoComplete="off"
             autoCorrect="off"
             spellCheck="false"
@@ -229,7 +214,7 @@ export function StockInput({
             <button
               onClick={handleClear}
               aria-label="Clear stock symbol"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               disabled={disabled}
               type="button"
             >
@@ -242,16 +227,16 @@ export function StockInput({
           onClick={handleSearch}
           disabled={!validation.isValid || isLoading || disabled}
           className={cn(
-            "h-10 shrink-0 px-3 sm:px-5 rounded-full",
+            "h-10 shrink-0 px-3 sm:px-5 rounded-xl",
             "bg-[#0071e3] text-white hover:bg-[#0077ed]",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed",
             "transition-all duration-200 ease-in-out",
             "flex items-center justify-center gap-2",
             "font-medium text-sm"
           )}
         >
           {isLoading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <div className="h-4 w-4 animate-spin rounded-xl border-2 border-current border-t-transparent" />
           ) : (
             <TrendingUp className="h-4 w-4" />
           )}

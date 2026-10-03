@@ -47,10 +47,10 @@ function useWatchlist() {
   return { symbols, signedIn, loading, saving, error, toggle, reload: load };
 }
 
-export function WatchlistButton({ ticker }: { ticker: string }) {
+export function WatchlistButton({ ticker, compact = false }: { ticker: string; compact?: boolean }) {
   const state = useWatchlist();
   if (state.loading) return <span className="text-xs text-muted-foreground">Loading watchlist…</span>;
-  return <div className="mt-4">{!state.signedIn && !state.error ? <Link className="app-button-secondary" href={`/login?next=${encodeURIComponent(`/stock-analysis?ticker=${ticker}`)}`}>Sign in to save</Link> : <button className="app-button-secondary" disabled={state.saving || Boolean(state.error)} aria-pressed={state.symbols.includes(ticker)} onClick={() => void state.toggle(ticker)}><Star size={16} fill={state.symbols.includes(ticker) ? 'currentColor' : 'none'}/>{state.saving ? 'Saving…' : state.symbols.includes(ticker) ? 'Saved to watchlist' : 'Add to watchlist'}</button>}{state.error && <p role="alert" className="mt-2 text-xs text-destructive">{state.error} <button className="underline" onClick={() => void state.reload()}>Retry</button></p>}</div>;
+  return <div className={compact ? "" : "mt-4"}>{!state.signedIn && !state.error ? <Link className="app-button-secondary" href={`/login?next=${encodeURIComponent(`/stock-analysis?ticker=${ticker}`)}`}>Sign in to save</Link> : <button className="app-button-secondary" disabled={state.saving || Boolean(state.error)} aria-pressed={state.symbols.includes(ticker)} onClick={() => void state.toggle(ticker)}><Star size={16} fill={state.symbols.includes(ticker) ? 'currentColor' : 'none'}/>{state.saving ? 'Saving…' : state.symbols.includes(ticker) ? 'Saved to watchlist' : 'Add to watchlist'}</button>}{state.error && <p role="alert" className="mt-2 text-xs text-destructive">{state.error} <button className="underline" onClick={() => void state.reload()}>Retry</button></p>}</div>;
 }
 
 export function WatchlistPanel() {

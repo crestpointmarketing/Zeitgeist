@@ -254,3 +254,19 @@ section:has([data-motion-paused="true"]) .preview-line { stroke-dashoffset: 0; }
 .research-tabs::-webkit-scrollbar { height: 4px; }
 .research-tabs::-webkit-scrollbar-thumb { background: #426281; border-radius: 4px; }
 .research-tabs::-webkit-scrollbar-button { display: none; }
+
+.research-shell .app-panel { background: #0d2032; border-radius: 12px; box-shadow: none; }
+.research-brief { background: #0b1b2c; }
+.research-shell .app-button, .research-shell .app-button-secondary, .research-shell .app-field { border-radius: 8px; }
+.research-shell .recharts-wrapper { font-family: var(--font-geist-sans), sans-serif; font-variant-numeric: tabular-nums; }
+.research-shell input { text-transform: none; }
+@media (max-width: 639px) {
+  .research-chart [role="img"] { height: 270px !important; }
+  .research-shell header a[aria-label="Zeitgeist home"] img { width: 30px; height: auto; }
+  .research-shell header a[aria-label="Zeitgeist home"] { gap: 7px; }
+  .research-shell header a[aria-label="Zeitgeist home"] span.block { font-size: 17px; }
+  .research-shell header a[aria-label="Zeitgeist home"] span.mt-0\.5 { font-size: 8px; }
+}
+@media (min-width: 1024px) and (max-height: 800px) {
+  .research-chart [role="img"] { height: 300px !important; }
+}
