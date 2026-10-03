@@ -3,7 +3,7 @@
 !integrations/dsa/
 !integrations/dsa/*.py
 !integrations/dsa/requirements.txt
-!integrations/dsa/Dockerfile
+!Dockerfile.vercel
 !integrations/prediction/
 !integrations/prediction/*.py
 !integrations/prediction/LICENSE

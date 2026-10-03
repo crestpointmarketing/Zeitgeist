@@ -11,7 +11,7 @@
     "dsa": {
       "root": "zeitgeist-app",
       "runtime": "container",
-      "entrypoint": "integrations/dsa/Dockerfile"
+      "entrypoint": "Dockerfile.vercel"
     }
   },
   "rewrites": [
