@@ -49,5 +49,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: 'nodejs', // Vercel Services does not support Edge middleware.
   matcher: ['/cfo/:path*', '/cfo', '/login'],
 };
