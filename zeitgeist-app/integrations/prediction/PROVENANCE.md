@@ -47,7 +47,36 @@ Its selected symbols do not establish cross-market generalization. Example:
 python integrations/prediction/benchmark.py --dsa-repo /path/to/daily_stock_analysis --tickers AAPL MSFT NVDA TSLA --output reports/prediction-v2-benchmark
 ```
 
-## Runtime (both protocols)
+## Gradient Boosting extension — 2026-10-04
+
+`fork-comparison-v3` adapts the `GradientBoostingRegressor` member from the same
+`stacking/stack-encoder-ensemble-xgb.ipynb` (already fingerprinted in the manifest).
+Its original 500 estimators / 0.1 learning rate are replaced with fixed 64 estimators,
+0.03 learning rate, depth 2, minimum 12 observations per leaf, Huber loss and seed 42.
+These settings are declared before the v3 smoke comparison; no search/tuning is run.
+
+The new model uses the existing 23 return features plus nine causal OHLCV features:
+close relative to trailing 5/20-session averages, same-session log close/open,
+current/5-session/21-session high-low ranges divided by close, close location within
+the day's range (0.5 for a zero range), and two trailing relative log-volume measures.
+`log1p(volume)` handles zero volume without fabricated activity. All 32 features
+use only information available at the prediction origin's close. Mature training
+labels, 504-row cap, 30 test windows and five-session target are unchanged.
+
+The original ensemble remains primary. Gradient Boosting may publish an additional
+explicitly labeled experimental target only if its own MAE is strictly below 95%
+of both baseline MAEs. Its latest target is fitted on labels available at the latest
+close; no target is returned when it fails the gate. Both gates and price/return
+arithmetic are independently verified at the web-service boundary. Comparing more
+models creates selection risk: a historical pass is not independent prospective
+validation, and the app does not automatically promote a retrospective winner.
+
+v1/v2 reports remain readable during rollout. v3 reports must include Gradient
+Boosting observations, consistent metrics and an explicit nullable target. The
+feature work is new Zeitgeist adaptation, not a claim that the original notebook
+used this feature set or evaluation. No new Python dependency or paid AI call is added.
+
+## Runtime (all protocols)
 
 The bridge has a separate one-worker forecast lock, a 45-second subprocess deadline and a one-hour in-memory cache. The existing market budget governs authenticated `/api/forecast` calls, including cached requests. No paid AI call is made. CPU workers cannot receive browser-specified tree counts, horizons or filesystem paths. No SQL migration or model binary deserialization is needed. Model reports are not passed to the LLM as established facts.
 

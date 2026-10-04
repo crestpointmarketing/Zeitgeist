@@ -4,7 +4,7 @@ Modified: fixed seeds, bounded trees, return targets, no global encoder/scaler,
 and log-return Monte Carlo with per-horizon quantiles instead of pooled prices.
 """
 import numpy as np
-from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -21,6 +21,14 @@ def linear_comparator():
     # New Zeitgeist comparator, not an upstream notebook model. Scaling is fit
     # separately inside each historical training window, never on future rows.
     return make_pipeline(StandardScaler(), Ridge(alpha=10.0))
+
+
+def boosted_regressor():
+    # Additional member from the same upstream stacking notebook. Fixed before
+    # evaluation; bounded CPU and shallow trees instead of its 500 estimators.
+    return GradientBoostingRegressor(n_estimators=64, learning_rate=.03,
+                                     max_depth=2, min_samples_leaf=12,
+                                     loss='huber', random_state=42)
 
 
 def simulate(closes, days=5, paths=2000):

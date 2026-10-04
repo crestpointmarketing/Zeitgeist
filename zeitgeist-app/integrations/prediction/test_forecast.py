@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import unittest
 import numpy as np
 import exchange_calendars as xcals
-from forecast_engine import evaluate, features, training_data, predict_at, predict_candidates_at, validate_bars, metrics
+from forecast_engine import evaluate, features, training_data, predict_at, predict_candidates_at, validate_bars, metrics, market_features, predict_boosted_at
 from fork_models import simulate
 
 
@@ -63,14 +63,31 @@ class ForecastTests(unittest.TestCase):
 
     def test_candidate_metrics_match_same_windows_and_do_not_select_a_new_primary(self):
         report = evaluate(history(), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel(), MeanModel()])
-        self.assertEqual(report['version'], 'fork-comparison-v2')
+        self.assertEqual(report['version'], 'fork-comparison-v3')
         windows = report['backtest']['windows']
         actual = [w['actual_return_pct'] / 100 for w in windows]
-        for key in ['extra_trees', 'random_forest', 'ridge']:
+        for key in ['extra_trees', 'random_forest', 'ridge', 'gradient_boosting']:
             expected = metrics([w['candidate_returns_pct'][key] / 100 for w in windows], actual)
             self.assertEqual(expected, report['backtest']['candidates'][key])
         backtest = report['backtest']
         self.assertEqual(report['qualified'], backtest['model']['mae_pp'] < .95 * min(backtest['flat']['mae_pp'], backtest['drift']['mae_pp']))
+        boosted_pass = backtest['candidates']['gradient_boosting']['mae_pp'] < .95 * min(backtest['flat']['mae_pp'], backtest['drift']['mae_pp'])
+        self.assertEqual(report['boosted_forecast'] is not None, boosted_pass)
+
+    def test_boosted_model_and_price_volume_features_cannot_see_future_rows(self):
+        bars = history()
+        changed = [dict(b) for b in bars]
+        for bar in changed[351:]:
+            for key in ['o', 'h', 'l', 'c', 'v']: bar[key] *= 8
+        np.testing.assert_array_equal(market_features(bars, 350), market_features(changed, 350))
+        self.assertEqual(predict_boosted_at(bars, 350), predict_boosted_at(changed, 350))
+
+    def test_zero_volume_and_zero_range_features_are_finite(self):
+        bars = history(flat=True)
+        for bar in bars:
+            bar.update(o=100., h=100., l=100., c=100., v=0.)
+        self.assertTrue(np.all(np.isfinite(market_features(bars, 350))))
+        self.assertEqual(predict_boosted_at(bars, 350), 0.)
 
     def test_simulation_is_reproducible_and_quantiles_are_per_horizon(self):
         closes = np.array([b['c'] for b in history()])

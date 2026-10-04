@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import numpy as np
-from fork_models import regressors, simulate, linear_comparator
+from fork_models import regressors, simulate, linear_comparator, boosted_regressor
 
-VERSION = 'fork-comparison-v2'
+VERSION = 'fork-comparison-v3'
 COMMIT = '33266732b0b16188b565e0aeb6b24efa71161f6a'
 HORIZON = 5
 LAG = 20
@@ -41,6 +41,38 @@ def features(closes, origin):
     # Everything here is observable at origin's close, never at the target close.
     returns = np.diff(np.log(closes[origin - LAG:origin + 1]))
     return np.r_[returns, returns[-5:].mean(), returns.mean(), returns.std()]
+
+
+def market_features(bars, origin):
+    """Price/volume features observable at this session's close; no future rows."""
+    if origin < LAG:
+        raise ValueError('Insufficient feature lookback')
+    sample = bars[origin - LAG:origin + 1]
+    close = np.array([b['c'] for b in sample], dtype=float)
+    volume = np.array([b['v'] for b in sample], dtype=float)
+    last = sample[-1]
+    ranges = np.array([(b['h'] - b['l']) / b['c'] for b in sample], dtype=float)
+    log_volume = np.log1p(volume)
+    return np.r_[features(close, LAG),
+                 np.log(close[-1] / close[-5:].mean()),
+                 np.log(close[-1] / close[-20:].mean()),
+                 np.log(last['c'] / last['o']),
+                 ranges[-1], ranges[-5:].mean(), ranges.mean(),
+                 (last['c'] - last['l']) / (last['h'] - last['l']) if last['h'] > last['l'] else .5,
+                 log_volume[-1] - log_volume[-20:].mean(),
+                 log_volume[-5:].mean() - log_volume[-20:].mean()]
+
+
+def predict_boosted_at(bars, origin, feature_rows=None):
+    closes = np.array([b['c'] for b in bars], dtype=float)
+    _, targets, indices = training_data(closes, origin)
+    # Optional precomputed rows are each built only from that row's past.
+    rows = feature_rows if feature_rows is not None else {int(i): market_features(bars, int(i)) for i in [*indices, origin]}
+    model = boosted_regressor().fit(np.array([rows[int(i)] for i in indices]), targets)
+    prediction = float(np.expm1(model.predict(np.asarray(rows[origin]).reshape(1, -1))[0]))
+    if not np.isfinite(prediction) or prediction <= -1:
+        raise ValueError('Invalid boosted prediction')
+    return prediction
 
 
 def training_data(closes, origin):
@@ -95,27 +127,31 @@ def evaluate(bars, ticker, now=None, factory=regressors):
     # 30 adjacent, non-overlapping five-session targets; no random split/tuning.
     origins = range(final_origin - HORIZON * TEST_WINDOWS, final_origin, HORIZON)
     windows = []
+    feature_rows = {i: market_features(bars, i) for i in range(LAG, len(bars))}
     for origin in origins:
         predictions, trained_through = predict_candidates_at(closes, origin, factory)
+        predictions['gradient_boosting'] = predict_boosted_at(bars, origin, feature_rows)
         actual = float(closes[origin + HORIZON] / closes[origin] - 1)
         drift = float(np.expm1(np.diff(np.log(closes[origin - 60:origin + 1])).mean() * HORIZON))
         windows.append({'origin': date_of(bars[origin]), 'target': date_of(bars[origin + HORIZON]),
                         'training_labels_through': date_of(bars[trained_through]),
                         'model_return_pct': predictions['model'] * 100, 'actual_return_pct': actual * 100,
-                        'candidate_returns_pct': {key: predictions[key] * 100 for key in ['extra_trees', 'random_forest', 'ridge']},
+                        'candidate_returns_pct': {key: predictions[key] * 100 for key in ['extra_trees', 'random_forest', 'ridge', 'gradient_boosting']},
                         'drift_return_pct': drift * 100})
     actual = [w['actual_return_pct'] / 100 for w in windows]
     model = metrics([w['model_return_pct'] / 100 for w in windows], actual)
     flat = metrics(np.zeros(len(windows)), actual)
     drift = metrics([w['drift_return_pct'] / 100 for w in windows], actual)
     candidates = {key: metrics([w['candidate_returns_pct'][key] / 100 for w in windows], actual)
-                  for key in ['extra_trees', 'random_forest', 'ridge']}
+                  for key in ['extra_trees', 'random_forest', 'ridge', 'gradient_boosting']}
     directional = [w for w in windows if abs(w['actual_return_pct']) > 1e-10]
     direction_hit = (sum(np.sign(w['actual_return_pct']) == np.sign(w['model_return_pct'])
                          for w in directional) / len(directional) * 100) if directional else None
     # An operational display gate, not a significance test or investment recommendation.
     qualified = model['mae_pp'] < 0.95 * min(flat['mae_pp'], drift['mae_pp'])
     prediction, _ = predict_at(closes, final_origin, factory)
+    boosted_qualified = candidates['gradient_boosting']['mae_pp'] < .95 * min(flat['mae_pp'], drift['mae_pp'])
+    boosted_prediction = predict_boosted_at(bars, final_origin, feature_rows) if boosted_qualified else None
     import exchange_calendars as xcals
     from datetime import date
     last_day = date.fromisoformat(date_of(bars[-1]))
@@ -132,6 +168,7 @@ def evaluate(bars, ticker, now=None, factory=regressors):
         'horizon_sessions': HORIZON, 'last_close': float(closes[-1]),
         'target_date': future[-1].strftime('%Y-%m-%d'), 'qualified': qualified,
         'forecast': {'price': float(closes[-1] * (1 + prediction)), 'return_pct': prediction * 100} if qualified else None,
+        'boosted_forecast': {'price': float(closes[-1] * (1 + boosted_prediction)), 'return_pct': boosted_prediction * 100} if boosted_prediction is not None else None,
         'backtest': {'windows': windows, 'model': model, 'flat': flat, 'drift': drift, 'candidates': candidates,
                      'direction_hit_pct': direction_hit, 'direction_samples': len(directional)},
         'simulation': [{'date': day.strftime('%Y-%m-%d'), 'p10': float(values[0]),

@@ -1,10 +1,11 @@
 import type { ForecastReport } from './forecast-schema';
 
 export type BacktestWindow = ForecastReport['backtest']['windows'][number];
-export type ComparedModel = 'model' | 'flat' | 'drift' | 'extra_trees' | 'random_forest' | 'ridge';
+export type ComparedModel = 'model' | 'flat' | 'drift' | 'extra_trees' | 'random_forest' | 'ridge' | 'gradient_boosting';
 export const MODEL_LABELS: Record<ComparedModel, string> = {
   model: 'Tree ensemble (primary)', flat: 'Unchanged price', drift: '60-session drift',
   extra_trees: 'Extra Trees', random_forest: 'Random Forest', ridge: 'Ridge (comparator)',
+  gradient_boosting: 'Gradient Boosting · price + volume',
 };
 export function windowReturn(w: BacktestWindow, key: ComparedModel): number | null {
   if (key === 'flat') return 0;
@@ -35,8 +36,8 @@ export function diagnostics(report: ForecastReport) {
     }) };
 }
 export function backtestCsv(report: ForecastReport): string {
-  const header = 'ticker,version,data_hash,origin,target,training_labels_through,actual_return_pct,ensemble_return_pct,extra_trees_return_pct,random_forest_return_pct,ridge_return_pct,drift_return_pct,flat_return_pct';
+  const header = 'ticker,version,data_hash,origin,target,training_labels_through,actual_return_pct,ensemble_return_pct,extra_trees_return_pct,random_forest_return_pct,ridge_return_pct,drift_return_pct,flat_return_pct,gradient_boosting_return_pct';
   return [header, ...report.backtest.windows.map(w => [report.ticker, report.version, report.data_hash, w.origin, w.target,
     w.training_labels_through, w.actual_return_pct, w.model_return_pct, w.candidate_returns_pct?.extra_trees ?? '',
-    w.candidate_returns_pct?.random_forest ?? '', w.candidate_returns_pct?.ridge ?? '', w.drift_return_pct, 0].join(','))].join('\r\n');
+    w.candidate_returns_pct?.random_forest ?? '', w.candidate_returns_pct?.ridge ?? '', w.drift_return_pct, 0, w.candidate_returns_pct?.gradient_boosting ?? ''].join(','))].join('\r\n');
 }

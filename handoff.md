@@ -2,7 +2,14 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
-### 固定版之后：预测功能第二阶段
+### 当前增量：第三个 fork 的预测模型 v3
+
+第三个 fork 是 `crestpointmarketing/Stock-Prediction-Models`。当前新增来自其 notebook 的 Gradient Boosting，使用 32 个只依赖当时及之前行情的价格、波动和成交量特征；固定参数、30 个相同历史窗口，独立执行原有 5% 基线改善门槛。协议为 `fork-comparison-v3`，保留 v1/v2 读取兼容。
+六只股票中，新模型相对原主模型 3 只改善、3 只变差，全部未达到发布门槛，不能宣称已得到可靠价格预测。详见 `zeitgeist-app/integrations/prediction/BOOSTING-VERIFICATION.md`。
+本轮验证：85 Node + 9 DSA + 10 预测测试，共 104 项通过；lint、生产构建通过。浏览器验证取消等待、重新运行、模型切换、历史窗口键盘选择及 320px 无横向溢出。加入 55 秒请求期限、保留上次结果和明确错误提示。
+历史固定点 `v2026.10.04-stable` 与 `v2026.10.04-model-lab-v2` 不移动；本轮发布使用新提交，并在上线验证后固定 `v2026.10.04-model-lab-v3`。生产部署状态必须从 Vercel 与正式域名核对，不能仅根据本文判断。
+
+### 历史记录：预测功能第二阶段
 
 `v2026.10.04-stable` 已推送，固定提交为 `3ce616600f047943eab3518a2a8520de677d2feb`。
 后续在 `codex/prediction-validation-v2` 开发，不移动固定标签。

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FlaskConical, LoaderCircle, Play, CheckCircle2, ShieldAlert } from 'lucide-react';
 import type { ForecastReport } from '@/lib/forecast-schema';
 import { ForecastComparison } from './forecast-comparison';
+import { requestForecast } from '@/lib/forecast-request';
 
 const dollars = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 const percent = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -17,8 +18,8 @@ export function ForecastResults({ report: r }: { report: ForecastReport }) {
   const band = `${line('p90')} ${[...points].reverse().map((p, i) => `${x(points.length - i - 1)},${y(p.p10)}`).join(' ')}`;
   return <div className="space-y-6">
     <div className={`rounded-xl border p-5 ${r.qualified ? 'border-teal-400/25 bg-teal-400/5' : 'border-amber-400/25 bg-amber-400/5'}`}>
-      <h3 className="flex items-center gap-2 font-semibold">{r.qualified ? <CheckCircle2 size={18} className="text-teal-300"/> : <ShieldAlert size={18} className="text-amber-300"/>}{r.qualified ? 'Passed this historical baseline comparison' : 'Model not yet validated'}</h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{r.qualified ? 'Five-session return MAE was at least 5% lower than both baselines. This small historical test does not establish a reliable trading edge.' : 'The model did not clearly outperform both simple baselines in this historical test, so no price forecast is shown. This is a completed test, not a loading error. You can review the results below.'}</p>
+      <h3 className="flex items-center gap-2 font-semibold">{r.qualified ? <CheckCircle2 size={18} className="text-teal-300"/> : <ShieldAlert size={18} className="text-amber-300"/>}{r.qualified ? 'Passed this historical baseline comparison' : 'Primary model not yet validated'}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{r.qualified ? 'Five-session return MAE was at least 5% lower than both baselines. This small historical test does not establish a reliable trading edge.' : 'The primary tree ensemble did not clearly outperform both simple baselines, so its price forecast is withheld. This is a completed test. Additional models are evaluated separately below.'}</p>
       {r.forecast && <p className="mt-4 text-xl font-semibold text-teal-300">Experimental target: {dollars(r.forecast.price)} <span className="text-sm">({percent(r.forecast.return_pct)}) · {r.target_date}</span></p>}
     </div>
     <div><h3 className="font-semibold">Walk-forward backtest</h3><p className="mt-2 text-xs text-muted-foreground">Publication requires five-session return MAE to be at least 5% lower than both baselines.</p><p className="mt-2 text-sm leading-6 text-muted-foreground">30 consecutive, non-overlapping five-session test windows. Each fit uses only labels available at that window’s origin. Fixed model settings; no test-period tuning.</p>
@@ -36,22 +37,36 @@ export function ForecastResults({ report: r }: { report: ForecastReport }) {
 }
 
 export function ForecastLab({ ticker }: { ticker: string }) {
+  return <ForecastLabSession key={ticker} ticker={ticker}/>;
+}
+
+function ForecastLabSession({ ticker }: { ticker: string }) {
   const [report, setReport] = useState<ForecastReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [cancelled, setCancelled] = useState(false);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    if (!running) return;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  function cancel() {
+    controller.current?.abort(); controller.current = null;
+    setRunning(false); setCancelled(true);
+  }
   async function run() {
     if (controller.current && !controller.current.signal.aborted) return;
     const active = new AbortController(); controller.current = active;
-    setRunning(true); setError(null);
+    setRunning(true); setError(null); setElapsed(0); setCancelled(false);
     try {
-      const response = await fetch('/api/forecast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticker }), signal: AbortSignal.any([active.signal, AbortSignal.timeout(55_000)]) });
-      const body = await response.json();
-      if (!response.ok || !body.success) throw new Error(typeof body.error?.message === 'string' ? body.error.message : 'Experiment unavailable. Please retry later.');
-      if (!active.signal.aborted) setReport(body.data);
+      const result = await requestForecast(ticker, active.signal);
+      if (controller.current === active && !active.signal.aborted) setReport(result);
     } catch (err) { if (!active.signal.aborted) setError(err instanceof Error ? err.message : 'Experiment unavailable.'); }
-    finally { if (!active.signal.aborted) { setRunning(false); controller.current = null; } }
+    finally { if (controller.current === active && !active.signal.aborted) { setRunning(false); controller.current = null; } }
   }
-  return <section className="space-y-6 p-5 sm:p-7" aria-label="Prediction experiment"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="app-eyebrow">Experimental · Five trading sessions</p><h2 className="mt-2 flex items-center gap-2 text-xl font-semibold"><FlaskConical className="text-primary" size={22}/>Model lab · {ticker}</h2></div><button className="app-button" disabled={running} onClick={() => void run()}>{running ? <LoaderCircle className="animate-spin" size={17}/> : <Play size={17}/>} {running ? 'Evaluating…' : report ? 'Run again' : 'Run experiment'}</button></div><p className="text-sm leading-7 text-muted-foreground">Experimental tree models evaluated on chronological historical windows. Runs on demand, uses one market-data request from your budget, and makes no paid AI call. Allow up to a minute. Results are cached for one hour.</p>{running && <p role="status" className="text-sm text-primary">Loading completed sessions and evaluating 30 historical windows…</p>}{error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}{report && <ForecastResults report={report}/>}</section>;
+  return <section className="space-y-6 p-5 sm:p-7" aria-label="Prediction experiment"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="app-eyebrow">Experimental · Five trading sessions</p><h2 className="mt-2 flex items-center gap-2 text-xl font-semibold"><FlaskConical className="text-primary" size={22}/>Model lab · {ticker}</h2></div><button className="app-button" disabled={running} onClick={() => void run()}>{running ? <LoaderCircle className="animate-spin" size={17}/> : <Play size={17}/>} {running ? 'Evaluating…' : error ? 'Retry experiment' : report ? 'Run again' : 'Run experiment'}</button></div><p className="text-sm leading-7 text-muted-foreground">Compare models on completed trading sessions. Each run uses one market-data request and no paid AI call. Allow up to a minute. Results are cached for one hour; running again may return the same report.</p>{running && <div className="flex flex-wrap items-center gap-3"><p role="status" className="text-sm text-primary">Evaluating 30 historical windows · {elapsed}s elapsed{elapsed >= 20 ? ' · Still waiting for the experiment service.' : ''}</p><button className="app-button-secondary" onClick={cancel}>Cancel waiting</button></div>}{cancelled && <p role="status" className="text-sm text-muted-foreground">Stopped waiting. Server work may continue and the request may still count toward your limit.</p>}{error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}{report && <><p className="text-xs text-muted-foreground">{running || error || cancelled ? 'Previous completed result' : 'Completed result'} · Generated <time dateTime={report.generated_at}>{new Date(report.generated_at).toLocaleString()}</time> · Data through {report.as_of}</p><ForecastResults report={report}/></>}</section>;
 }

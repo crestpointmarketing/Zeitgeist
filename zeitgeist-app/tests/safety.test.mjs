@@ -751,6 +751,36 @@ function forecastFixture(qualified = true) {
 const forecasts = load('src/lib/forecast-schema.ts');
 const forecastNow = Date.parse('2026-10-03T13:00:00Z');
 
+test('forecast requests bound waiting and preserve explicit cancellation', async () => {
+  const deadline = new AbortController();
+  const api = load('src/lib/forecast-request.ts', { __AbortSignal: {
+    timeout: ms => { assert.equal(ms, 55000); return deadline.signal; }, any: signals => AbortSignal.any(signals),
+  } });
+  const stalled = (_url, {signal}) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), {once:true}));
+  const pending = api.requestForecast('AAPL', new AbortController().signal, stalled);
+  deadline.abort();
+  await assert.rejects(pending, /longer than 55 seconds/);
+  const normal = load('src/lib/forecast-request.ts');
+  const caller = new AbortController();
+  const cancelled = normal.requestForecast('AAPL', caller.signal, stalled);
+  caller.abort();
+  await assert.rejects(cancelled, {name:'AbortError'});
+});
+
+test('forecast transport explains gateway failures and rejects malformed or wrong-symbol reports', async () => {
+  const api = load('src/lib/forecast-request.ts', { './forecast-schema': { parseForecast: (data,ticker) => forecasts.parseForecast(data,ticker,forecastNow) } });
+  const signal = new AbortController().signal;
+  await assert.rejects(api.requestForecast('AAPL',signal,async()=>new Response('<html>Gateway</html>',{status:502})),/unreadable response/);
+  await assert.rejects(api.requestForecast('AAPL',signal,async()=>Response.json(null,{status:429})),/busy or a request limit/);
+  await assert.rejects(api.requestForecast('AAPL',signal,async()=>Response.json({success:true,data:{}})),/incomplete or out of date/);
+  await assert.rejects(api.requestForecast('TSLA',signal,async()=>Response.json({success:true,data:forecastFixture()})),/incomplete or out of date/);
+  const report = await api.requestForecast('AAPL',signal,async(_url,options)=>{
+    assert.deepEqual(JSON.parse(options.body),{ticker:'AAPL'});
+    return Response.json({success:true,data:forecastFixture()});
+  });
+  assert.equal(report.ticker,'AAPL');
+});
+
 function comparisonFixture() {
   const report = forecastFixture(false);
   report.version = 'fork-comparison-v2';
@@ -758,6 +788,25 @@ function comparisonFixture() {
   report.backtest.windows.forEach(w => { w.candidate_returns_pct = { extra_trees: 0, random_forest: 0, ridge: 1 }; });
   return report;
 }
+
+test('boosted forecast has its own verified baseline gate and target arithmetic', () => {
+  const make = (passes = true) => {
+    const report = comparisonFixture(); report.version = 'fork-comparison-v3';
+    report.backtest.candidates.gradient_boosting = { mae_pp: passes ? 0 : 1, rmse_pp: passes ? 0 : 1 };
+    report.backtest.windows.forEach(w => {w.candidate_returns_pct.gradient_boosting = passes ? 1 : 0;});
+    report.boosted_forecast = passes ? {price:101,return_pct:1} : null;
+    return report;
+  };
+  assert.equal(forecasts.parseForecast(make(), 'AAPL', forecastNow).boosted_forecast.price,101);
+  assert.equal(forecasts.parseForecast(make(false), 'AAPL', forecastNow).boosted_forecast,null);
+  for(const change of [r=>delete r.boosted_forecast,r=>delete r.backtest.candidates.gradient_boosting,
+    r=>delete r.backtest.windows[0].candidate_returns_pct.gradient_boosting,r=>r.boosted_forecast.price=999,
+    r=>r.boosted_forecast=null,r=>r.backtest.candidates.gradient_boosting.mae_pp=.1]){
+    const report=make();change(report);assert.throws(()=>forecasts.parseForecast(report,'AAPL',forecastNow));
+  }
+  const bypass=make(false);bypass.boosted_forecast={price:101,return_pct:1};
+  assert.throws(()=>forecasts.parseForecast(bypass,'AAPL',forecastNow),/baseline gate/);
+});
 
 test('comparison reports cannot silently promote a better retrospective comparator', () => {
   const report = forecasts.parseForecast(comparisonFixture(), 'AAPL', forecastNow);
@@ -805,6 +854,8 @@ test('comparison UI exposes diagnostic charts and exports without inventing a fo
   const html = renderToStaticMarkup(React.createElement(ForecastResults, { report: comparisonFixture() }));
   for (const text of ['Why this result?', 'Extra Trees', 'Random Forest', 'Ridge (comparator)', 'Earlier', 'Recent', 'Download backtest CSV', 'Download full report']) assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /Experimental target:/);
+  assert.match(html, /Historical test window/);
+  assert.match(html, /Absolute error/);
 });
 
 test('forecast validation verifies observed errors, baseline gate and target price arithmetic', () => {
@@ -827,7 +878,7 @@ test('experiment UI withholds unqualified price forecast while exposing baseline
   const React = dependency('react'), { renderToStaticMarkup } = dependency('react-dom/server');
   const { ForecastResults } = load('src/components/forecast-lab.tsx');
   const html = renderToStaticMarkup(React.createElement(ForecastResults, { report: forecastFixture(false) }));
-  assert.match(html, /Model not yet validated/);
+  assert.match(html, /Primary model not yet validated/);
   assert.doesNotMatch(html, /Experimental target:/);
   assert.match(html, /Unchanged price/);
   assert.match(html, /not a calibrated confidence interval/);
