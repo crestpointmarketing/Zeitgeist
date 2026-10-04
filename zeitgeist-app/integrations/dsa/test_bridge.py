@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 import subprocess
+import time
 import unittest
 from unittest.mock import patch
 
@@ -11,7 +12,7 @@ from financials_worker import quarterly_records, statement_payload, BALANCE_ROWS
 
 # DSA_REPO_PATH must point to the checked-out fork for import-time validation.
 os.environ['DSA_SERVICE_TOKEN'] = 'test-only-' + 'a' * 32
-from bridge import app, cache
+from bridge import app, cache, lock, financials_lock, forecast_lock
 
 
 class BridgeTests(unittest.TestCase):
@@ -32,6 +33,20 @@ class BridgeTests(unittest.TestCase):
                 self.assertEqual(self.client.get('/v1/history/AAPL', headers=self.headers).status_code, 504)
             self.assertEqual(run.call_count, 2)
             self.assertEqual(run.call_args.kwargs['timeout'], 25)
+
+    def test_warm_cache_remains_available_while_worker_is_busy(self):
+        for kind, worker_lock, days in [('history', lock, 30), ('financials', financials_lock, 30), ('forecast', forecast_lock, 1100)]:
+            cache[(kind, 'AAPL', days)] = (time.monotonic() + 60, {'cached': kind})
+            worker_lock.acquire()
+            try:
+                with patch('bridge.subprocess.run') as run:
+                    response = self.client.get(f'/v1/{kind}/AAPL', headers=self.headers)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.json(), {'cached': kind})
+                    run.assert_not_called()
+                    self.assertEqual(self.client.get(f'/v1/{kind}/AAPL').status_code, 401)
+            finally:
+                worker_lock.release()
 
     def test_forecast_auth_timeout_and_cache(self):
         self.assertEqual(self.client.get('/v1/forecast/AAPL').status_code, 401)

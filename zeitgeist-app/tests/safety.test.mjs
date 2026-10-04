@@ -707,7 +707,7 @@ test('experiment UI withholds unqualified price forecast while exposing baseline
   const React = dependency('react'), { renderToStaticMarkup } = dependency('react-dom/server');
   const { ForecastResults } = load('src/components/forecast-lab.tsx');
   const html = renderToStaticMarkup(React.createElement(ForecastResults, { report: forecastFixture(false) }));
-  assert.match(html, /No model forecast published/);
+  assert.match(html, /Model not yet validated/);
   assert.doesNotMatch(html, /Experimental target:/);
   assert.match(html, /Unchanged price/);
   assert.match(html, /not a calibrated confidence interval/);
@@ -827,4 +827,38 @@ test('initial research state renders exactly one search and no premature dashboa
   assert.equal((html.match(/role="combobox"/g)||[]).length,1);
   assert.match(html,/Explore the market/);
   assert.doesNotMatch(html,/AI Insight|Price history|Research sections/);
+});
+
+test('stock follow-up displays the question while retaining a valid model reference', () => {
+  const {stockQuestionText,researchMessageDisplay}=load('src/lib/research-brief.ts');
+  const market={...snapshot,evidence:{session_date:'2026-09-28',source:'Test',bars:21,sma5:100,sma20:null,missing:['Live quotes']}};
+  const text=stockQuestionText('Explain the risk',market,null);
+  const display=researchMessageDisplay(text);
+  assert.equal(display.text,`${snapshot.stock_data.ticker}: Explain the risk`);
+  assert.match(display.context,/21 sessions/);
+  assert.doesNotMatch(display.text,/Research snapshot|sma5/);
+  const prose='Please explain Research snapshot in plain English.';
+  assert.equal(researchMessageDisplay(prose).text,prose);
+  assert.equal(researchMessageDisplay(text.replace('"bars":21','"bars":"wrong"')).context,null);
+});
+
+test('follow-up prioritizes cited articles and keeps large reference payloads valid JSON', () => {
+  const {stockQuestionText,researchMessageDisplay}=load('src/lib/research-brief.ts');
+  const market={...snapshot,evidence:{session_date:'2026-09-28',source:'Test',bars:21,sma5:100,sma20:null,missing:['Live quotes']},news:{articles:[
+    {id:'N1',title:'Unrelated first article',url:'https://example.com/1',published_at:'2026-09-28'},
+    {id:'N3',title:'The actual cited evidence',url:'https://example.com/3',published_at:'2026-09-28'},
+  ]}};
+  const text=stockQuestionText('Explain',market,{...valid,news_analysis:[{source_ids:['N3']}]});
+  assert.match(text,/actual cited evidence/);assert.doesNotMatch(text,/Unrelated first article/);
+  market.news.articles[1].title='Long "title" '.repeat(2000);
+  market.news.articles[1].url='https://example.com/'+ 'x'.repeat(4000);
+  const bounded=stockQuestionText('Q'.repeat(9000),market,{...valid,summary:'S'.repeat(8000),risk_factors:['R'.repeat(8000)],news_analysis:[{source_ids:['N3']}]});
+  assert.ok(bounded.length<=4000);assert.ok(researchMessageDisplay(bounded).context);
+});
+
+test('inline chat errors preserve actionable authentication and quota messages', () => {
+  const {friendlyChatError}=load('src/lib/chat-error.ts');
+  assert.equal(friendlyChatError(new Error('{"error":"Sign in to use this feature."}')),'Sign in to use this feature.');
+  assert.equal(friendlyChatError(new Error('{"error":{"message":"Request limit reached."}}')),'Request limit reached.');
+  assert.equal(friendlyChatError(new Error('Network unavailable')),'Network unavailable');
 });

@@ -51,12 +51,18 @@ def run_request(ticker, days, authorization, kind):
         raise HTTPException(401, 'Unauthorized')
     if not ticker.isascii() or not ticker.isalpha() or not 1 <= len(ticker) <= 5 or ticker != ticker.upper():
         raise HTTPException(400, 'Invalid US symbol')
+    key = (kind, ticker, days)
+    # A warm result requires no worker. Other symbols must not block cache hits.
+    with cache_lock:
+        cached = cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
     # Bound upstream concurrency; avoid unbounded work after client timeouts.
     worker_lock = {'history': lock, 'financials': financials_lock, 'forecast': forecast_lock}[kind]
-    if not worker_lock.acquire(timeout=1):
+    if not worker_lock.acquire(timeout=2):
         raise HTTPException(429, 'Market data worker is busy')
     try:
-        key = (kind, ticker, days)
+        # Another request may have populated this key while we waited.
         with cache_lock:
             cached = cache.get(key)
         if cached and cached[0] > time.monotonic():

@@ -9,6 +9,7 @@ import { Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uiMessageText } from "@/types/cfo";
 import { boundedMessages } from '@/lib/chat-input';
+import { researchMessageDisplay } from '@/lib/research-brief';
 import { ChatComposer } from "./chat-composer";
 
 const SUGGESTIONS = [
@@ -135,18 +136,19 @@ export function ChatThread({
                 <div key={message.id} className="flex justify-end">
                   <div
                     className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5 text-white",
+                      "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5 text-white",
                       compact ? "text-sm" : "text-[15px]"
                     )}
                   >
-                    {uiMessageText(message)}
+                    {researchMessageDisplay(uiMessageText(message)).text}
+                    {researchMessageDisplay(uiMessageText(message)).context && <p className="mt-2 border-t border-white/20 pt-2 text-xs text-blue-100">{researchMessageDisplay(uiMessageText(message)).context}</p>}
                   </div>
                 </div>
               ) : (
                 <div
                   key={message.id}
                   className={cn(
-                    "prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-card",
+                    "prose prose-invert min-w-0 max-w-none break-words prose-p:leading-relaxed prose-pre:bg-card [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
                     compact ? "prose-sm" : "prose-sm md:prose-base"
                   )}
                 >

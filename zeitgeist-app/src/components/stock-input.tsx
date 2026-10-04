@@ -98,6 +98,7 @@ export function StockInput({
 
   // Handle Enter key press
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || isLoading || disabled) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       if (showDropdown && highlightedIndex >= 0 && filteredSuggestions[highlightedIndex]) {
@@ -123,16 +124,18 @@ export function StockInput({
       setShowDropdown(false);
       setHighlightedIndex(-1);
     }
-  }, [showDropdown, highlightedIndex, filteredSuggestions, validateInput, handleSearch, onSearch]);
+  }, [showDropdown, highlightedIndex, filteredSuggestions, validateInput, handleSearch, onSearch, isLoading, disabled]);
 
   // Handle suggestion selection
   const handleSuggestionClick = useCallback((stock: typeof POPULAR_STOCKS[0]) => {
+    if (isLoading || disabled) return;
     inputRef.current?.focus();
     setInputValue(stock.symbol);
     setValidation(validateInput(stock.symbol));
     setShowDropdown(false);
     setHighlightedIndex(-1);
-  }, [validateInput]);
+    onSearch(stock.symbol);
+  }, [validateInput, isLoading, disabled, onSearch]);
 
   // Handle input focus
   const handleFocus = useCallback(() => {
@@ -291,7 +294,7 @@ export function StockInput({
             </div>
           ) : (
             <div className="px-3 py-2 text-sm text-muted-foreground">
-              No stocks found
+              No matching suggestions. Enter an exact ticker to search.
             </div>
           )}
         </div>
