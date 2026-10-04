@@ -48,8 +48,22 @@ export async function getMarketSnapshot(ticker: string, days: number) {
       throw new MarketDataError('DSA requires HTTPS outside localhost.', 503);
     }
     url.searchParams.set('days', String(Math.max(days, 30)));
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30000) });
+    const signal = AbortSignal.timeout(30000);
+    let response = await fetch(url, { headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store', redirect: 'error', signal });
+    // The bridge returns 429 while its history worker is occupied. Retry inside
+    // the same request budget and deadline, never restarting the 30-second clock.
+    for (let retry = 0; response.status === 429 && retry < 2; retry++) {
+      await response.body?.cancel();
+      await new Promise<void>((resolve, reject) => {
+        const aborted = () => { clearTimeout(timer); reject(signal.reason); };
+        const timer = setTimeout(() => { signal.removeEventListener('abort', aborted); resolve(); }, 1000);
+        if (signal.aborted) aborted();
+        else signal.addEventListener('abort', aborted, { once: true });
+      });
+      response = await fetch(url, { headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store', redirect: 'error', signal });
+    }
     if (!response.ok) throw new MarketDataError(response.status === 429 ? 'DSA is busy. Please retry shortly.' : 'DSA market data is temporarily unavailable.', response.status === 429 ? 429 : 502);
     const result = normalizeDsaPayload(await response.json(), ticker);
     const cutoff = sessionDate(Date.now() - days * 86400000);

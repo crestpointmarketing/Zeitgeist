@@ -460,9 +460,14 @@ test('DSA normalizes sorted bars and rejects wrong, duplicate, future, stale and
 });
 
 test('DSA transport preserves service authentication, timeout and provider failure', async () => {
+  let calls = 0;
+  let deadline;
   const service = load('src/lib/market-provider.ts', { 'server-only': {},
     __env: { MARKET_DATA_PROVIDER: 'dsa', DSA_BASE_URL: 'http://127.0.0.1:8001', DSA_SERVICE_TOKEN: 'test-token' },
     __fetch: async (url, options) => {
+      calls++;
+      deadline ??= options.signal;
+      assert.equal(options.signal, deadline);
       assert.equal(url.pathname, '/v1/history/AAPL');
       assert.equal(options.headers.Authorization, 'Bearer test-token');
       assert.equal(options.redirect, 'error');
@@ -471,6 +476,19 @@ test('DSA transport preserves service authentication, timeout and provider failu
     },
   });
   await assert.rejects(service.getMarketSnapshot('AAPL', 30), error => error.status === 429);
+  assert.equal(calls, 3);
+});
+
+test('DSA recovers a transient occupied worker without retrying successful history', async () => {
+  let calls = 0;
+  const service = load('src/lib/market-provider.ts', { 'server-only': {},
+    __env: { MARKET_DATA_PROVIDER: 'dsa', DSA_BASE_URL: 'http://localhost:8001', DSA_SERVICE_TOKEN: 'test' },
+    __fetch: async () => ++calls === 1 ? new Response('', { status: 429 }) : Response.json({
+      ...dsaPayload, bars: [{ ...previous, t: Date.now() - 2 * 86400000 }, { ...current, t: Date.now() - 86400000 }],
+    }),
+  });
+  assert.equal((await service.getMarketSnapshot('AAPL', 30)).stockData.ticker, 'AAPL');
+  assert.equal(calls, 2);
 });
 
 test('DSA credentials cannot be sent to a non-TLS remote server', async () => {
