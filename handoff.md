@@ -42,7 +42,17 @@ git switch -c codex/next-change v2026.10.04-stable
 - 保留深蓝配色、Z Logo、favicon；侧栏可折叠，窄屏 AI 面板下移。不要重新推翻设计或恢复重复欢迎卡/空图表/空 AI 面板。
 - 字体对比、输入控件、移动菜单、窄屏财报表格已经处理。图表是日收盘数据，禁止包装成实时价格。
 
-## 4. 架构和两个 fork 的实际用途
+## 4. 架构和三个 fork 的实际用途
+
+项目涉及 **三个 fork：一个主项目、两个外部集成来源**。2026-10-04 已通过 GitHub 仓库元数据核对 fork 关系：
+
+| 用户仓库 | 原始上游 | 当前作用 |
+| --- | --- | --- |
+| `crestpointmarketing/Zeitgeist` | `3than777/Zeitgeist` | 主应用；当前工作区、UI、认证、数据库接入、API 编排、发布入口 |
+| `crestpointmarketing/daily_stock_analysis` | `ZhuLinsen/daily_stock_analysis` | 行情和数据集成来源，运行于私有 Python bridge |
+| `crestpointmarketing/Stock-Prediction-Models` | `huseinzol05/Stock-Prediction-Models` | Model lab 模型与回测改写来源 |
+
+“两个集成 fork”只指后两项，不能写成项目只有两个 fork。主项目的固定版本由本交接的 Git 标签定位；两个外部来源的固定提交分别列在下文。
 
 ### Web 和数据流程
 
@@ -54,7 +64,13 @@ Next.js 15 / React 19 / TypeScript / Tailwind；Supabase Auth + Postgres；Anthr
 4. 相同证据、模型及 prompt 版本共享 AI 分析缓存；pending 状态轮询，不重复扣 AI 额度。
 5. AI 失败保留价格，允许单独重试；切换股票取消过期客户端请求。
 
-### 第一个 fork：daily_stock_analysis
+### Fork 1：Zeitgeist 主项目
+
+- 本地正在开发并发布的就是 `crestpointmarketing/Zeitgeist`，上游为 `3than777/Zeitgeist`。
+- 原项目不是第三方运行时依赖，而是本产品的代码基础；界面、数据链路、认证和持久化等改造均在此 fork 中维护。
+- 本次固定整个主项目源码和锁文件，不自动合并上游的新改动。
+
+### Fork 2：daily_stock_analysis 数据集成
 
 - 仓库 `https://github.com/crestpointmarketing/daily_stock_analysis`。
 - 固定上游提交 `be148f39ce3be8bc7f9c2d5b0ad77cd31655e78f`，Dockerfile 中固定引用。
@@ -63,7 +79,7 @@ Next.js 15 / React 19 / TypeScript / Tailwind；Supabase Auth + Postgres；Anthr
 - 新闻及可用公司资料由 Polygon 提供；未启用 DSA 的通知、调度、后台管理或全局组合功能。
 - 缓存命中优先于 worker 锁，避免其他股票请求阻塞已有缓存。
 
-### 第二个 fork：Stock-Prediction-Models
+### Fork 3：Stock-Prediction-Models 模型集成
 
 - 仓库 `https://github.com/crestpointmarketing/Stock-Prediction-Models`。
 - 来源提交 `33266732b0b16188b565e0aeb6b24efa71161f6a`。
