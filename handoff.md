@@ -2,7 +2,18 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
-### 当前固定版：持久研究工作区
+### 最新补丁：登录提示与邮件回调兼容
+
+分支 `codex/auth-link-recovery`，基于固定版 `v2026.10.04-research-workspace` / `7f4be8b`。新标签 `v2026.10.04-auth-links` 仅在正式域名验收后创建；不移动旧标签。最终源码以远程标签解析，生产验收证据存于忽略目录 `zeitgeist-app/reports/auth-release-proof.json`。
+
+- 用户截图中的红字由 `/login?error=auth_callback` 初始化，并不代表本次密码验证失败；demo 的真实密码登录接口正常。旧回调仅接受 PKCE `code`，把服务异常、缺失浏览器验证信息和不同格式邮件都归为“无效或过期”。此前邮件已送达/邮箱已确认不等于浏览器会话回调全部通过。
+- 保留服务端 PKCE 交换，同时透传当前 SDK 的 `sb_flow_id`，防止多次请求邮件时使用错误的验证槽。保留安全本地跳转校验；区分实际过期、缺少原浏览器验证信息和服务不可用，响应禁止缓存及 Referrer。
+- 无 code 的回调交给 `/auth/complete` 处理旧格式 session fragment：在创建客户端前立即清除地址栏 fragment，仅在 Supabase 接受 session 且 `getUser` 验证成功后继续；缺失/无效 token 不使用已有登录态蒙混通过。有效 recovery 打开重设密码表单。兼容已被旧版转到登录页的 fragment。无数据库迁移、无新密钥、不关闭邮箱验证。
+- 邮件提示移到独立说明区，明确仍可使用邮箱/密码登录；输入或提交时清除提示，同时清理陈旧 URL 参数。实际密码登录错误继续单独显示。提供重新申请恢复链接入口，保留用户原来安全的 next 路径。
+- 125 项 Node 回归（其中 13 项新增邮件回调边界测试）及生产构建/lint/类型检查通过。本地生产模式浏览器验证 demo 密码登录、真实授权别名的旧格式 recovery 到达表单、fragment 清除、过期提示和重新申请入口。没有修改任何账户密码，没有因测试再次发送邮件；临时认证文件用后删除。
+- 不保证已经过期/使用过的邮件重新有效。PKCE 邮件缺少请求时的浏览器 cookie 时，应在原浏览器打开或重新申请；不得绕过验证器。正式部署后核对新旧格式回调与 demo 登录，再建立补丁标签。
+
+### 固定功能版：持久研究工作区
 
 开发分支 `codex/research-workspace`，基于 `v2026.10.04-forward-validation` / `d958924`。功能提交 `75217ccc95cab65056838cc89ab137aece07b710` 已上线，[正式部署 dN96Q165z](https://vercel.com/crestpointmarketings-projects/zeitgeist/dN96Q165zNcGcV2mvouWf5myzqes) 为 Ready / Production，域名及源码已核对。后续记录入口修正与本交接收尾包含在固定标签 `v2026.10.04-research-workspace` 中；以远程标签解析精确最终提交。此前所有历史标签保留不动。
 
