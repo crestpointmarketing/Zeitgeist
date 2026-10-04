@@ -5,6 +5,7 @@ import type { ForecastReport } from '@/lib/forecast-schema';
 import { ForecastComparison } from './forecast-comparison';
 import { requestForecast } from '@/lib/forecast-request';
 import { ResearchLab } from './research-lab';
+import { ForwardLedger, RecordingNotice } from './forward-ledger';
 
 const dollars = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 const percent = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -18,6 +19,7 @@ export function ForecastResults({ report: r }: { report: ForecastReport }) {
   const line = (key: 'p10' | 'p50' | 'p90') => points.map((p, i) => `${x(i)},${y(p[key])}`).join(' ');
   const band = `${line('p90')} ${[...points].reverse().map((p, i) => `${x(points.length - i - 1)},${y(p.p10)}`).join(' ')}`;
   return <div className="space-y-6">
+    <RecordingNotice tracking={r.tracking}/>
     <div className={`rounded-xl border p-5 ${r.qualified ? 'border-teal-400/25 bg-teal-400/5' : 'border-amber-400/25 bg-amber-400/5'}`}>
       <h3 className="flex items-center gap-2 font-semibold">{r.qualified ? <CheckCircle2 size={18} className="text-teal-300"/> : <ShieldAlert size={18} className="text-amber-300"/>}{r.qualified ? 'Passed this historical baseline comparison' : 'Primary model not yet validated'}</h3>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{r.qualified ? 'Five-session return MAE was at least 5% lower than both baselines. This small historical test does not establish a reliable trading edge.' : 'The primary tree ensemble did not clearly outperform both simple baselines, so its price forecast is withheld. This is a completed test. Additional models are evaluated separately below.'}</p>
@@ -38,7 +40,7 @@ export function ForecastResults({ report: r }: { report: ForecastReport }) {
 }
 
 export function ForecastLab({ ticker }: { ticker: string }) {
-  return <><ForecastLabSession key={ticker} ticker={ticker}/><ResearchLab ticker={ticker}/></>;
+  return <><ForecastLabSession key={ticker} ticker={ticker}/><ResearchLab ticker={ticker}/><ForwardLedger key={'ledger-'+ticker} ticker={ticker}/></>;
 }
 
 function ForecastLabSession({ ticker }: { ticker: string }) {

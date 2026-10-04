@@ -5,6 +5,7 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>Number.isFinite(Da
 const metric = z.object({mae_pp:n.nonnegative(),rmse_pp:n.nonnegative()});
 const quantile = z.object({date:day,p10:positive,p50:positive,p90:positive});
 export const researchSchema = z.object({
+  tracking:z.object({state:z.enum(['saved','unavailable','not_applicable']),ids:z.array(z.string().uuid())}).optional(),
   version:z.literal('fork-research-v1'), fork_commit:z.literal('33266732b0b16188b565e0aeb6b24efa71161f6a'),
   ticker:z.string().regex(/^[A-Z]{1,5}$/), model:z.custom<ResearchModel>(isResearchModel), kind:z.enum(['prediction','strategy','risk']),
   generated_at:z.string().datetime({offset:true}), as_of:day, history_start:day, history_bars:z.number().int().min(400).max(900),

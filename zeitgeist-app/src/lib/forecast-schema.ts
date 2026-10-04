@@ -7,6 +7,7 @@ const metric = z.object({ mae_pp: finite.nonnegative(), rmse_pp: finite.nonnegat
 const candidateReturns = z.object({ extra_trees: finite.gt(-100), random_forest: finite.gt(-100), ridge: finite.gt(-100), gradient_boosting: finite.gt(-100).optional() });
 const candidateMetrics = z.object({ extra_trees: metric, random_forest: metric, ridge: metric, gradient_boosting: metric.optional() });
 export const forecastSchema = z.object({
+  tracking:z.object({state:z.enum(['saved','unavailable','not_applicable']),ids:z.array(z.string().uuid())}).optional(),
   version: z.enum(['fork-trees-v1', 'fork-comparison-v2', 'fork-comparison-v3']), fork_commit: z.literal('33266732b0b16188b565e0aeb6b24efa71161f6a'),
   ticker: z.string().regex(/^[A-Z]{1,5}$/), source: z.literal('DSA / Yahoo Finance (adjusted)'), currency: z.literal('USD'),
   generated_at: z.string().datetime({ offset: true }), as_of: day, history_start: day,

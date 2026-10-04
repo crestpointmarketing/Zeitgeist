@@ -80,6 +80,22 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(len(bars), 1)
         self.assertEqual(bars[0]['t'], int(datetime(2026, 11, 27, 18, tzinfo=timezone.utc).timestamp() * 1000))
 
+    def test_settlement_auth_dates_cache_and_deadline(self):
+        path='/v1/settlement/AAPL?origin=2026-09-25&target=2026-10-02'
+        with patch('bridge.subprocess.run') as run:
+            self.assertEqual(self.client.get(path).status_code,401)
+            for suffix in ['origin=20260925&target=2026-10-02','origin=2026-09-25&target=2026-09-24','origin=2026-09-25&target=2026-12-01']:
+                self.assertEqual(self.client.get('/v1/settlement/AAPL?'+suffix,headers=self.headers).status_code,400)
+            run.assert_not_called()
+        result=subprocess.CompletedProcess([],0,stdout='{"verified":true}')
+        with patch('bridge.subprocess.run',return_value=result) as run:
+            for _ in range(2): self.assertEqual(self.client.get(path,headers=self.headers).status_code,200)
+            self.assertEqual(run.call_count,1)
+            self.assertEqual(run.call_args.args[0][-2:],['2026-09-25','2026-10-02'])
+            self.assertEqual(run.call_args.kwargs['timeout'],20)
+            self.assertEqual(self.client.get(path.replace('09-25','09-24').replace('10-02','10-01'),headers=self.headers).status_code,200)
+            self.assertEqual(run.call_count,2)
+
     def test_financial_worker_retains_missing_loss_and_zero_without_ttm_fallback(self):
         frame = pd.DataFrame({pd.Timestamp('2026-06-30'): [100, -20, 0]}, index=['Total Revenue', 'Net Income', 'Operating Income'])
         result = quarterly_records(frame, datetime(2026, 10, 3, tzinfo=timezone.utc))

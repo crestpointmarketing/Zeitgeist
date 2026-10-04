@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import { RESEARCH_MODELS, type ResearchModel } from '@/lib/research-catalog';
 import type { ResearchReport } from '@/lib/research-schema';
 import { requestResearch } from '@/lib/research-request';
+import { RecordingNotice } from './forward-ledger';
 
 function ResearchResults({report:r}:{report:ResearchReport}){
   const [point,setPoint]=useState(29);
   const p=r.prediction, s=r.strategy, risk=r.risk;
   return <div className="mt-6 space-y-5" aria-label="Selected research result">
+    <RecordingNotice tracking={r.tracking}/>
     <h4 className="text-lg font-semibold">{RESEARCH_MODELS[r.model][0]} · {r.ticker}</h4>
     <p className="text-xs leading-6 text-muted-foreground">{r.source} · {r.history_bars} sessions · Data through {r.as_of}<br/>Generated <time dateTime={r.generated_at}>{new Date(r.generated_at).toLocaleString()}</time></p>
     {p&&<>

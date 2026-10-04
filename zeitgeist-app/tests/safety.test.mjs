@@ -790,16 +790,17 @@ test('research request cancellation and malformed responses remain actionable',a
 test('research API authorizes and validates before consuming budget',async()=>{
   const guards=access(null);let calls=0;
   const mocks={'@/lib/api-access':{...guards,reserveUsage:async()=>{calls++;}},'@/lib/research-provider':{getResearch:async()=>{calls++;}}};
+  mocks['@/lib/forecast-recording']={recordForecast:async()=>({state:'unavailable',ids:[]})};
   const denied=load('src/app/api/model-research/route.ts',mocks);
   assert.equal((await denied.POST(new Request('http://local',{method:'POST',body:'{"ticker":"AAPL","model":"lstm"}'}))).status,503);assert.equal(calls,0);
-  const route=load('src/app/api/model-research/route.ts',{...mocks,'@/lib/api-access':{...mocks['@/lib/api-access'],requireAccount:async()=>({supabase:{}})}});
+  const route=load('src/app/api/model-research/route.ts',{...mocks,'@/lib/api-access':{...mocks['@/lib/api-access'],requireAccount:async()=>({supabase:{},user:{id:"test-user"}})}});
   for(const model of ['__proto__','unknown',null])assert.equal((await route.POST(new Request('http://local',{method:'POST',body:JSON.stringify({ticker:'AAPL',model})}))).status,400);
   assert.equal(calls,0);
 });
 
 test('research releases usage lease and does not expose provider internals',async()=>{
   const guards=access(null);let released=0;
-  const route=load('src/app/api/model-research/route.ts',{'@/lib/api-access':{...guards,requireAccount:async()=>({supabase:{}}),reserveUsage:async(_,feature)=>{assert.equal(feature,'stock');return async()=>{released++;};}},'@/lib/research-provider':{getResearch:async()=>{throw Error('private worker detail');}}});
+  const route=load('src/app/api/model-research/route.ts',{'@/lib/forecast-recording':{recordForecast:async()=>({state:'unavailable',ids:[]})},'@/lib/api-access':{...guards,requireAccount:async()=>({supabase:{},user:{id:"test-user"}}),reserveUsage:async(_,feature)=>{assert.equal(feature,'stock');return async()=>{released++;};}},'@/lib/research-provider':{getResearch:async()=>{throw Error('private worker detail');}}});
   const response=await route.POST(new Request('http://local',{method:'POST',body:'{"ticker":"AAPL","model":"lstm"}'}));
   assert.equal(response.status,500);assert.equal(released,1);assert.doesNotMatch(await response.text(),/private worker detail/);
 });
@@ -951,10 +952,10 @@ test('experiment UI withholds unqualified price forecast while exposing baseline
 
 test('forecast endpoint requires auth and validates before reserving market-data budget', async () => {
   const guards = access(null); let calls = 0;
-  const denied = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
+  const denied = load('src/app/api/forecast/route.ts', { '@/lib/forecast-recording':{recordForecast:async()=>({state:'unavailable',ids:[]})}, '@/lib/api-access': { ...guards, reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
   assert.equal((await denied.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"AAPL"}'}))).status, 503);
   assert.equal(calls, 0);
-  const route = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{}}), reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
+  const route = load('src/app/api/forecast/route.ts', { '@/lib/forecast-recording':{recordForecast:async()=>({state:'unavailable',ids:[]})}, '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{},user:{id:"test-user"}}), reserveUsage: async () => {calls++;} }, '@/lib/forecast-provider': { getForecast: async () => {calls++;} } });
   assert.equal((await route.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"INVALID"}'}))).status, 400);
   assert.equal(calls, 0);
 });
@@ -963,7 +964,7 @@ test('forecast uses stock quota and releases its lease on success and failure', 
   for (const fail of [false, true]) {
     let released = 0, feature, symbol;
     const guards = access(null);
-    const route = load('src/app/api/forecast/route.ts', { '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{}}), reserveUsage: async (_, f) => {feature=f; return async () => {released++;};} }, '@/lib/forecast-provider': { getForecast: async s => {symbol=s;if(fail)throw new Error('private provider detail');return forecastFixture();} } });
+    const route = load('src/app/api/forecast/route.ts', { '@/lib/forecast-recording':{recordForecast:async()=>({state:'unavailable',ids:[]})}, '@/lib/api-access': { ...guards, requireAccount: async () => ({supabase:{},user:{id:"test-user"}}), reserveUsage: async (_, f) => {feature=f; return async () => {released++;};} }, '@/lib/forecast-provider': { getForecast: async s => {symbol=s;if(fail)throw new Error('private provider detail');return forecastFixture();} } });
     const response = await route.POST(new Request('http://local/api/forecast',{method:'POST',body:'{"ticker":"aapl","trees":999999}'}));
     assert.equal(feature, 'stock'); assert.equal(symbol, 'AAPL'); assert.equal(released, 1);
     assert.equal(response.status, fail ? 500 : 200);

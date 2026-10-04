@@ -23,7 +23,11 @@ def main():
         frame = YfinanceFetcher().get_daily_data(ticker,
             start_date=(now - timedelta(days=1100)).strftime('%Y-%m-%d'),
             end_date=(now + timedelta(days=1)).strftime('%Y-%m-%d'))
-        report = evaluate_research(completed_bars(frame, now), ticker, model, now)
+        bars = completed_bars(frame, now)
+        report = evaluate_research(bars, ticker, model, now)
+        if report['kind'] == 'prediction':
+            from forward_evidence import evidence
+            report['forward_evidence'] = evidence(bars)
     print(json.dumps(report, allow_nan=False))
 
 

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import date
 from collections import OrderedDict
 
 from dotenv import load_dotenv
@@ -51,7 +52,12 @@ def research(ticker: str, model: str = Query(..., pattern='^[a-z_]{3,40}$'), aut
     return run_request(ticker, 1100, authorization, 'research', model)
 
 
-def run_request(ticker, days, authorization, kind, model=None):
+@app.get('/v1/settlement/{ticker}')
+def settlement(ticker: str, origin: str, target: str, authorization: str = Header('')):
+    return run_request(ticker, 10, authorization, 'settlement', origin=origin, target=target)
+
+
+def run_request(ticker, days, authorization, kind, model=None, origin=None, target=None):
     if not hmac.compare_digest(authorization, 'Bearer ' + TOKEN):
         raise HTTPException(401, 'Unauthorized')
     if not ticker.isascii() or not ticker.isalpha() or not 1 <= len(ticker) <= 5 or ticker != ticker.upper():
@@ -63,14 +69,20 @@ def run_request(ticker, days, authorization, kind, model=None):
             sys.path.insert(0, prediction_path)
         from research_engine import MODEL_IDS
         if model not in MODEL_IDS: raise HTTPException(400, 'Unsupported research model')
-    key = (kind, ticker, days) + ((model,) if kind == 'research' else ())
+    if kind == 'settlement':
+        try:
+            first, last = date.fromisoformat(origin), date.fromisoformat(target)
+            if origin != first.isoformat() or target != last.isoformat() or not 5 <= (last-first).days <= 15:
+                raise ValueError('Invalid horizon')
+        except (ValueError, TypeError): raise HTTPException(400, 'Invalid settlement dates') from None
+    key = (kind, ticker, days) + ((model,) if kind == 'research' else (origin,target) if kind == 'settlement' else ())
     # A warm result requires no worker. Other symbols must not block cache hits.
     with cache_lock:
         cached = cache.get(key)
     if cached and cached[0] > time.monotonic():
         return cached[1]
     # Bound upstream concurrency; avoid unbounded work after client timeouts.
-    worker_lock = {'history': lock, 'financials': financials_lock, 'forecast': forecast_lock, 'research': forecast_lock}[kind]
+    worker_lock = {'history': lock, 'settlement': lock, 'financials': financials_lock, 'forecast': forecast_lock, 'research': forecast_lock}[kind]
     if not worker_lock.acquire(timeout=2):
         raise HTTPException(429, 'Market data worker is busy')
     try:
@@ -80,11 +92,12 @@ def run_request(ticker, days, authorization, kind, model=None):
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            script = {'history': 'worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py', 'research': 'research_worker.py'}[kind]
+            script = {'history': 'worker.py', 'settlement': 'settlement_worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py', 'research': 'research_worker.py'}[kind]
             command = [sys.executable, str(Path(__file__).with_name(script)), str(REPO), ticker, str(days)]
             if kind == 'research': command.append(model)
+            if kind == 'settlement': command.extend([origin,target])
             result = subprocess.run(command,
-                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'financials': 10, 'forecast': 45, 'research': 45}[kind], cwd=REPO)
+                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'settlement': 20, 'financials': 10, 'forecast': 45, 'research': 45}[kind], cwd=REPO)
             if result.returncode:
                 raise HTTPException(502, 'Upstream market data unavailable')
             payload = json.loads(result.stdout)
