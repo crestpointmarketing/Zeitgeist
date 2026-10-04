@@ -1,0 +1,3 @@
+"use client";
+import {useEffect,useState} from 'react';
+export function ResearchNotification(){const [unread,setUnread]=useState(0);useEffect(()=>{let active=true;const poll=()=>{if(document.visibilityState!=='visible')return;fetch('/api/research/notifications',{cache:'no-store'}).then(async r=>{if(r.ok){const b=await r.json();if(active)setUnread(b.unread);}}).catch(()=>{});};poll();const id=setInterval(poll,60000);return()=>{active=false;clearInterval(id);};},[]);return unread?<span className="ml-auto rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] text-cyan-300" aria-label={`${unread} unread research results`}>{unread>99?'99+':unread}</span>:null;}

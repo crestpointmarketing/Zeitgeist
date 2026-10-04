@@ -4,6 +4,7 @@ import { createAdminClient } from './supabase/admin';
 import type { ForecastReport } from './forecast-schema';
 import type { ResearchReport } from './research-schema';
 import type { ForwardEvidence } from './forward-evidence';
+import {recordInterval} from './interval-recording';
 export type RecordingStatus={state:'saved'|'unavailable'|'not_applicable';ids:string[]};
 
 /** The authenticated server records its own validated report; browser-supplied results are never accepted. */
@@ -28,6 +29,7 @@ export async function recordForecast(userId:string,report:ForecastReport|Researc
       const {data,error:readError}=await admin.from('forecast_records').select('id').eq('user_id',userId).eq('ticker',report.ticker).eq('model_id',candidate.id).eq('model_version',report.version).eq('as_of',report.as_of).single();
       if(readError||!data)throw readError;
       ids.push(data.id);
+      await recordInterval(userId,data.id).catch(()=>console.error('Interval recording unavailable'));
     }
     return {state:'saved',ids};
   }catch{console.error('Forecast recording unavailable');return {state:'unavailable',ids:[]};}

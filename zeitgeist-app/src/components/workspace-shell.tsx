@@ -2,7 +2,8 @@
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, type ReactNode } from 'react';
-import { ChartNoAxesCombined, Sparkles, Database, PanelLeftClose, PanelLeftOpen, Menu, X, Star, Info } from 'lucide-react';
+import { ChartNoAxesCombined, Sparkles, Database, PanelLeftClose, PanelLeftOpen, Menu, X, Star, Info, ListChecks } from 'lucide-react';
+import {ResearchNotification} from './research-notification';
 import { Brand } from './brand';
 import { AuthControls } from './navigation';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ const routes = [
   {href:'/stock-analysis',label:'Explore',icon:ChartNoAxesCombined},
   {href:'/cfo',label:'AI CFO',icon:Sparkles},
   {href:'/watchlist',label:'Watchlist',icon:Star},
+  {href:'/research',label:'Research tasks',icon:ListChecks},
 ];
 export function WorkspaceShell({children,search,sidebarContent}:{children:ReactNode;search?:ReactNode;sidebarContent?:ReactNode}) {
   const pathname=usePathname();
@@ -29,7 +31,7 @@ export function WorkspaceShell({children,search,sidebarContent}:{children:ReactN
     document.addEventListener('keydown',close); desktop.addEventListener('change',resize);
     return ()=>{document.removeEventListener('keydown',close);desktop.removeEventListener('change',resize);};
   },[]);
-  const links=<nav aria-label="Workspace navigation" className="space-y-2">{routes.map(({href,label,icon:Icon})=><WorkspaceLink onClick={()=>setOpen(false)} key={href} href={href} title={collapsed?label:undefined} aria-label={label} aria-current={pathname===href?'page':undefined} className={cn('flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm',pathname===href?'terminal-active border-blue-400/20 text-white':'border-transparent text-muted-foreground hover:bg-primary/5 hover:text-white')}><Icon className="shrink-0" size={20}/><span className={collapsed?'lg:hidden':''}>{label}</span></WorkspaceLink>)}</nav>;
+  const links=<nav aria-label="Workspace navigation" className="space-y-2">{routes.map(({href,label,icon:Icon})=><WorkspaceLink onClick={()=>setOpen(false)} key={href} href={href} title={collapsed?label:undefined} aria-label={label} aria-current={pathname===href?'page':undefined} className={cn('flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm',pathname===href?'terminal-active border-blue-400/20 text-white':'border-transparent text-muted-foreground hover:bg-primary/5 hover:text-white')}><Icon className="shrink-0" size={20}/><span className={collapsed?'lg:hidden':''}>{label}</span>{href==='/research'&&!collapsed&&<ResearchNotification/>}</WorkspaceLink>)}</nav>;
   return <div className="research-shell min-h-dvh bg-[#06121f] text-foreground">
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3">Skip to content</a>
     <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-[#071522] lg:flex',collapsed?'w-[72px] px-3':'w-[196px] px-4')}>

@@ -21,6 +21,7 @@ function load(file, mocks = {}) {
     exports, console, sessionStorage: mocks.__storage, process: { env: mocks.__env ?? {} }, Date, Intl, Number, Response, TextDecoder, Uint8Array, URL, DOMException, AbortSignal: mocks.__AbortSignal ?? AbortSignal, fetch: mocks.__fetch ?? fetch, setTimeout, clearTimeout,
     require(name) {
       if (name in mocks) return mocks[name];
+      if (name === 'server-only') return {};
       if (name.startsWith('.')) return load(path.resolve(path.dirname(filename), name + '.ts'), mocks);
       if (name.startsWith('@/')) return load('src/' + name.slice(2) + '.ts', mocks);
       return dependency(name);

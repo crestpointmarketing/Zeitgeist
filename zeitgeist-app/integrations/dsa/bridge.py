@@ -7,11 +7,11 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from collections import OrderedDict
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 
 load_dotenv(Path(__file__).with_name('.env'))
 TOKEN = os.environ.get('DSA_SERVICE_TOKEN', '')
@@ -57,6 +57,46 @@ def settlement(ticker: str, origin: str, target: str, authorization: str = Heade
     return run_request(ticker, 10, authorization, 'settlement', origin=origin, target=target)
 
 
+@app.get('/v1/research-history/{ticker}')
+def research_history(ticker: str, authorization: str = Header('')):
+    return run_request(ticker,1100,authorization,'research_history')
+
+
+@app.get('/v1/calendar')
+def market_calendar(authorization: str = Header('')):
+    if not hmac.compare_digest(authorization,'Bearer '+TOKEN): raise HTTPException(401,'Unauthorized')
+    import exchange_calendars as xcals
+    now=datetime.now(timezone.utc)
+    calendar=xcals.get_calendar('XNYS')
+    sessions=calendar.sessions_in_range((now-timedelta(days=15)).date(),now.date())
+    eligible=[s for s in sessions if calendar.session_close(s).to_pydatetime()+timedelta(minutes=20)<=now]
+    session=eligible[-1]
+    return {'session':session.strftime('%Y-%m-%d'),'close':calendar.session_close(session).isoformat()}
+
+
+@app.post('/v1/portfolio')
+async def portfolio(request: Request, authorization: str = Header('')):
+    if not hmac.compare_digest(authorization,'Bearer '+TOKEN): raise HTTPException(401,'Unauthorized')
+    data=bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data)>2_000_000: raise HTTPException(413,'Too large')
+    # Run blocking process supervision in a thread, preserving health/calendar responsiveness.
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(run_portfolio,bytes(data))
+
+
+def run_portfolio(data):
+    if not forecast_lock.acquire(timeout=2): raise HTTPException(429,'Research worker is busy')
+    try:
+        result=subprocess.run([sys.executable,str(Path(__file__).with_name('portfolio_worker.py'))],input=data.decode('utf-8'),capture_output=True,text=True,encoding='utf-8',timeout=20,cwd=REPO)
+        if result.returncode: raise HTTPException(502,'Portfolio inputs unavailable or invalid')
+        return json.loads(result.stdout)
+    except subprocess.TimeoutExpired: raise HTTPException(504,'Portfolio timed out') from None
+    except (ValueError,OSError): raise HTTPException(502,'Portfolio unavailable') from None
+    finally: forecast_lock.release()
+
+
 def run_request(ticker, days, authorization, kind, model=None, origin=None, target=None):
     if not hmac.compare_digest(authorization, 'Bearer ' + TOKEN):
         raise HTTPException(401, 'Unauthorized')
@@ -82,7 +122,7 @@ def run_request(ticker, days, authorization, kind, model=None, origin=None, targ
     if cached and cached[0] > time.monotonic():
         return cached[1]
     # Bound upstream concurrency; avoid unbounded work after client timeouts.
-    worker_lock = {'history': lock, 'settlement': lock, 'financials': financials_lock, 'forecast': forecast_lock, 'research': forecast_lock}[kind]
+    worker_lock = {'history': lock, 'research_history': lock, 'settlement': lock, 'financials': financials_lock, 'forecast': forecast_lock, 'research': forecast_lock}[kind]
     if not worker_lock.acquire(timeout=2):
         raise HTTPException(429, 'Market data worker is busy')
     try:
@@ -92,12 +132,12 @@ def run_request(ticker, days, authorization, kind, model=None, origin=None, targ
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            script = {'history': 'worker.py', 'settlement': 'settlement_worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py', 'research': 'research_worker.py'}[kind]
+            script = {'history': 'worker.py', 'research_history': 'research_history_worker.py', 'settlement': 'settlement_worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py', 'research': 'research_worker.py'}[kind]
             command = [sys.executable, str(Path(__file__).with_name(script)), str(REPO), ticker, str(days)]
             if kind == 'research': command.append(model)
             if kind == 'settlement': command.extend([origin,target])
             result = subprocess.run(command,
-                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'settlement': 20, 'financials': 10, 'forecast': 45, 'research': 45}[kind], cwd=REPO)
+                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'research_history':25, 'settlement': 20, 'financials': 10, 'forecast': 45, 'research': 45}[kind], cwd=REPO)
             if result.returncode:
                 raise HTTPException(502, 'Upstream market data unavailable')
             payload = json.loads(result.stdout)

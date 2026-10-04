@@ -1,0 +1,2 @@
+import {requireAccount,RequestError,requestErrorResponse} from '@/lib/api-access';
+export async function GET(){try{const {supabase}=await requireAccount();const {count,error}=await supabase.from('research_jobs').select('id',{count:'exact',head:true}).eq('status','succeeded').is('read_at',null);if(error)throw new RequestError('Notifications unavailable.',503);return Response.json({unread:count??0},{headers:{'Cache-Control':'no-store'}});}catch(e){return requestErrorResponse(e);}}

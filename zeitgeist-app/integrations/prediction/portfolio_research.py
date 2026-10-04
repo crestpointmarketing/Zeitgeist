@@ -21,7 +21,7 @@ def allocation_curve(returns, weights, fee=.001):
     return result
 
 
-def evaluate_portfolio(histories, now):
+def evaluate_portfolio(histories, now, requested_weights=None):
     if not 2 <= len(histories) <= 6: raise ValueError('Use two to six aligned securities')
     maps = {}
     for ticker, bars in histories.items():
@@ -40,10 +40,20 @@ def evaluate_portfolio(histories, now):
                    bounds=[(0., .6)] * len(tickers), constraints={'type':'eq','fun':lambda w: w.sum()-1},
                    options={'maxiter':100,'ftol':1e-10})
     if not fit.success or abs(fit.x.sum()-1)>1e-6: raise ValueError('Portfolio optimization did not converge')
-    return dict(version='portfolio-research-v1', tickers=tickers, training_through=dates[-61],
+    report = dict(version='portfolio-research-v1', tickers=tickers, training_through=dates[-61],
                 test_start=dates[-60], test_end=dates[-1], weights=dict(zip(tickers, map(float, fit.x))),
                 cost_bps_per_side=10, optimized_equity=allocation_curve(test,fit.x),
                 equal_weight_equity=allocation_curve(test,equal), dates=dates[-60:])
+    if requested_weights is not None:
+        if set(requested_weights) != set(tickers): raise ValueError('Weights must match securities')
+        custom = np.array([requested_weights[t] for t in tickers], dtype=float)
+        if not np.isfinite(custom).all() or (custom<0).any() or (custom>1).any() or abs(custom.sum()-1)>1e-6:
+            raise ValueError('Weights must sum to one')
+        report.update(version='portfolio-research-v2', requested_weights=requested_weights,
+                      requested_equity=allocation_curve(test,custom),
+                      train_correlation=np.nan_to_num(np.corrcoef(train,rowvar=False)).tolist(),
+                      generated_at=now.isoformat(), source='DSA / Yahoo Finance (adjusted)')
+    return report
 
 
 def main():

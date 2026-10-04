@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai';
 
 export const chatRequestSchema = z.object({
   conversationId: z.string().uuid(),
+  contextJobId:z.string().uuid().optional(),
   messages: z.array(z.object({
     id: z.string().min(1).max(128), role: z.enum(['user', 'assistant']),
     parts: z.array(z.object({ type: z.literal('text'), text: z.string().max(12000) })).min(1).max(8),

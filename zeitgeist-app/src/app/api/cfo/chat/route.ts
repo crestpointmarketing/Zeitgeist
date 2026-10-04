@@ -6,6 +6,7 @@ import { boundedMessages, chatRequestSchema } from '@/lib/chat-input';
 import { readJson, requireAccount, reserveUsage, RequestError } from '@/lib/api-access';
 import { claimGeneration, fingerprint } from '@/lib/generation-cache';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {cfoContext} from '@/lib/cfo-context';
 
 export const maxDuration = 60;
 
@@ -34,10 +35,16 @@ export async function POST(request: Request) {
       { id: conversationId, user_id: user.id, title: text.slice(0, 48) }, { onConflict: 'id', ignoreDuplicates: true },
     );
     if (conversationError) throw new RequestError('Could not open conversation.', 503);
-    const { data: conversation, error: ownershipError } = await supabase.from('conversations').select('id').eq('id', conversationId).maybeSingle();
+    const { data: conversation, error: ownershipError } = await supabase.from('conversations').select('id,research_context_job').eq('id', conversationId).maybeSingle();
     if (ownershipError || !conversation) throw new RequestError('Conversation not found.', 403);
 
-    const claim = await claimGeneration<{ text: string }>('chat:' + conversationId + ':' + last.id, fingerprint(text), conversationId);
+    const contextId=parsed.data.contextJobId??conversation.research_context_job;
+    const context=contextId?await cfoContext(user.id,contextId):'';
+    if(parsed.data.contextJobId&&parsed.data.contextJobId!==conversation.research_context_job){
+      const {error:contextError}=await supabase.from('conversations').update({research_context_job:parsed.data.contextJobId}).eq('id',conversationId);
+      if(contextError)throw new RequestError('Could not attach research context.',503);
+    }
+    const claim = await claimGeneration<{ text: string }>('chat:' + conversationId + ':' + last.id, fingerprint(contextId?text+'|'+contextId:text), conversationId);
     if (claim.state === 'ready') return replay(claim.result!.text);
     if (claim.state === 'pending') throw new RequestError('This message is already being answered. Retry shortly.', 409);
     failClaim = () => claim.finish(null);
@@ -57,7 +64,7 @@ export async function POST(request: Request) {
     const releaseLease = release;
     const failed = async () => { await claim.finish(null).catch(() => {}); await releaseLease(); };
     const result = streamText({
-      model: anthropic(process.env.ANTHROPIC_CHAT_MODEL || 'claude-sonnet-5-5'), system: CFO_SYSTEM_PROMPT,
+      model: anthropic(process.env.ANTHROPIC_CHAT_MODEL || 'claude-sonnet-5-5'), system: CFO_SYSTEM_PROMPT+context,
       providerOptions: (process.env.ANTHROPIC_CHAT_MODEL || 'claude-sonnet-5-5') === 'claude-sonnet-5-5'
         ? { anthropic: { thinking: { type: 'between_tools' }, effort: 'medium' } }
         : undefined,

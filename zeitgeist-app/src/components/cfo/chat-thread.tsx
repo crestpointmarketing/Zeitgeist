@@ -32,6 +32,7 @@ function friendlyError(error: Error): string {
 
 interface ChatThreadProps {
   conversationId: string;
+  contextJobId?:string;
   initialMessages: UIMessage[];
   compact?: boolean;
   autoFocus?: boolean;
@@ -41,6 +42,7 @@ interface ChatThreadProps {
 
 export function ChatThread({
   conversationId,
+  contextJobId,
   initialMessages,
   compact = false,
   autoFocus = false,
@@ -51,12 +53,12 @@ export function ChatThread({
     () =>
       new DefaultChatTransport({
         api: "/api/cfo/chat",
-        body: { conversationId },
+        body: { conversationId,contextJobId },
         prepareSendMessagesRequest: ({ messages, body }) => ({
           body: { ...body, messages: boundedMessages(messages) },
         }),
       }),
-    [conversationId]
+    [conversationId,contextJobId]
   );
 
   const { messages, sendMessage, status, stop, error, regenerate, clearError } =
@@ -78,6 +80,7 @@ export function ChatThread({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {contextJobId&&<p className="border-b border-border px-5 py-3 text-xs text-cyan-300">Saved research attached · <a className="underline" href={`/research?id=${contextJobId}`}>View stocks, sources and dates</a></p>}
       {/* Messages */}
       <div
         ref={scrollRef}
