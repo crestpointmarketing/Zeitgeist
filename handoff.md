@@ -2,6 +2,10 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
+### 登录入口澄清（2026-10-04）
+
+用户截图停留在注册页，提交后仍展示密码和 Create account，容易误认为无法登录。修复前用现有 demo 账户在正式 `/login` 登录成功，未发现账户被禁用。现在顶部提供明确的 Sign in / Create account 导航；注册无即时 session 时清空密码、收起注册表单，显示确认邮箱说明及 Go to sign in 主入口。已有账户使用已有密码登录，不应重复注册。保留邮箱确认机制，不自动确认新用户，不泄露邮箱是否已注册。此 UI 修复通过 85 项 Node 回归、lint 和生产构建；历史预测固定标签不移动。
+
 ### 当前增量：第三个 fork 的预测模型 v3
 
 第三个 fork 是 `crestpointmarketing/Stock-Prediction-Models`。当前新增来自其 notebook 的 Gradient Boosting，使用 32 个只依赖当时及之前行情的价格、波动和成交量特征；固定参数、30 个相同历史窗口，独立执行原有 5% 基线改善门槛。协议为 `fork-comparison-v3`，保留 v1/v2 读取兼容。

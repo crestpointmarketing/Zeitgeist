@@ -44,7 +44,7 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         if (error) throw error;
@@ -56,7 +56,7 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
         setNotice('If an account exists for this address, a password reset link will arrive shortly. Open it in this browser.');
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
@@ -66,8 +66,11 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
         if (data.session) {
           window.location.assign(next);
         } else {
+          setPassword('');
+          setConfirmation('');
+          setShowPassword(false);
           setNotice(
-            "Check your email to confirm your account, then sign in."
+            "If this email address needs confirmation, follow the link in your inbox before signing in. If you already have an account, sign in with your existing password."
           );
         }
       }
@@ -83,7 +86,7 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
       <div className="auth-form-intro mb-5 text-center">
         <div className="mb-5 flex justify-center lg:hidden"><Brand/></div>
         <h1 className="text-3xl font-semibold tracking-tight text-white">
-          {mode === "reset" ? "Reset your password." : mode === "signin" ? "Welcome back." : "Make room for clarity."}
+          {mode === "reset" ? "Reset your password." : mode === "signin" ? "Welcome back." : "Create your account."}
         </h1>
         <p className="mt-2 text-[15px] text-muted-foreground">
           {mode === "reset" ? "We’ll send a link to your email address." : mode === "signin"
@@ -92,6 +95,11 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
         </p>
       </div>
 
+      {mode !== 'reset' && <nav aria-label="Account access" className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-border p-1">
+        <Link href={`/login?next=${encodeURIComponent(next)}`} aria-current={mode === 'signin' ? 'page' : undefined} className={cn('rounded-lg px-3 py-2.5 text-center text-sm font-medium', mode === 'signin' ? 'bg-primary/20 text-white' : 'text-muted-foreground hover:text-white')}>Sign in</Link>
+        <Link href={`/signup?next=${encodeURIComponent(next)}`} aria-current={mode === 'signup' ? 'page' : undefined} className={cn('rounded-lg px-3 py-2.5 text-center text-sm font-medium', mode === 'signup' ? 'bg-primary/20 text-white' : 'text-muted-foreground hover:text-white')}>Create account</Link>
+      </nav>}
+
       <div className="app-panel p-5 sm:p-6">
         {!isSupabaseConfigured && (
           <p className="mb-4 rounded-xl bg-yellow-500/10 px-4 py-3 text-[13px] text-yellow-300">
@@ -99,7 +107,12 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {mode === 'signup' && notice ? <div className="space-y-5">
+          <h2 className="text-xl font-semibold">Next step: sign in</h2>
+          <p role="status" className="text-sm leading-7 text-muted-foreground">{notice}</p>
+          <Link href={`/login?next=${encodeURIComponent(next)}`} className="app-button w-full">Go to sign in</Link>
+          <button type="button" className="w-full text-center text-sm text-primary hover:underline" onClick={() => { setNotice(null); setError(null); }}>Use a different email</button>
+        </div> : <form onSubmit={handleSubmit} className="space-y-3">
           <label className="block text-sm font-medium" htmlFor="email">Email address</label>
           <input
             id="email"
@@ -144,34 +157,12 @@ export default function LoginForm({ initialMode = 'signin' }: { initialMode?: 's
                 ? "Sign in"
                 : mode === "reset" ? "Send reset link" : "Create account"}
           </button>
-        </form>
+        </form>}
       </div>
 
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        {mode === "signin" ? (
-          <>
-            New to Zeitgeist?{" "}
-            <Link
-              href={`/signup?next=${encodeURIComponent(next)}`}
-              className="text-primary hover:underline"
-            >
-              Create an account
-            </Link>
-          </>
-        ) : mode === 'reset' ? (
+      {mode === 'reset' && <p className="mt-4 text-center text-sm text-muted-foreground">
           <button type="button" disabled={busy} className="text-primary hover:underline" onClick={() => { setMode('signin'); setError(null); setNotice(null); }}>Back to sign in</button>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <Link
-              href={`/login?next=${encodeURIComponent(next)}`}
-              className="text-primary hover:underline"
-            >
-              Sign in
-            </Link>
-          </>
-        )}
-      </p>
+      </p>}
     </div>
   );
 }
