@@ -97,6 +97,16 @@ Six supplied snapshots also completed the portfolio study. Training ended 2026-0
 - Local browser checks: select/run prediction, keyboard historical-window slider, cancel/retry paper simulation and risk diagnostics.
 - Production checks and deployment identity are recorded in the root handoff after release.
 
+Production deployment `0303726` passed 13 checks through `zeitgeiststocks.com`:
+demo authentication, anonymous rejection, three invalid module rejections, seven
+representative new modules (LSTM, bidirectional GRU, temporal stack, ARIMA, evolution,
+tabular Q-learning, risk diagnostics) and the original v3 forecast endpoint.
+All seven reports passed the actual TypeScript parser. Observed new-module latency
+was 4.1–19.0 seconds; primary v3 took 19.9 seconds. Browser checks confirmed the new
+selector, qualified-result rendering, keyboard historical-window selection and
+cancellation retaining the prior result. This timing is a single smoke observation,
+not a performance guarantee. No model settings were changed after observing scores.
+
 ## Reproduce
 
 From `zeitgeist-app`, using a Python environment with both requirements files installed:

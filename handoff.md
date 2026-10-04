@@ -4,7 +4,9 @@
 
 ### 当前增量：第三个 fork 的扩展研究实验室
 
-开发分支 `codex/full-prediction-lab`，基于已上线的 `v2026.10.04-navigation`（`1135862`）。本轮发布标签预定为 `v2026.10.04-research-lab`；须以远程标签和 Vercel source commit 核对发布状态，不能把开发完成等同于上线完成。
+开发分支 `codex/full-prediction-lab`，基于已上线的 `v2026.10.04-navigation`（`1135862`）。功能提交 `030372639493c2b3a3479a99f085630b01f3bfd4` 已部署到正式域名并验收；固定标签为 `v2026.10.04-research-lab`（包含随后补充的交接记录）。须以远程标签和 Vercel source commit 核对当前状态，不能把开发完成等同于上线完成。
+
+生产功能部署：[Vercel Bq7LGdAfo3GPyn3Af3zof4mUEvf4](https://vercel.com/crestpointmarketings-projects/zeitgeist/Bq7LGdAfo3GPyn3Af3zof4mUEvf4)，GitHub Vercel status 为 success，正式 `https://zeitgeiststocks.com` 确认新 UI。demo 账户完成 13 项生产检查：登录/额度标记、匿名拒绝、3 种非法模型拒绝、7 个代表模块及旧 v3 预测接口，全部通过。新模块云端耗时约 4.1–19.0 秒（本次观测，不是 SLA），旧 v3 约 19.9 秒。正式浏览器验证双向 GRU 结果、Home 键选择首个历史窗口、取消等待保留上一结果；截图位于本机忽略目录 `zeitgeist-app/reports/research-lab-production.png`。旧的导航及登录修复保留。
 
 - 正式入口：选定股票 → More → Model lab → Sequence models & research tools。新增 29 个按需模块：18 种序列网络架构、Autoencoder + Ridge、5 种传统/堆叠模型、4 种纸面策略、1 种风险诊断。原 v3 主模型及其门槛保留。
 - 18 个编号深度学习 notebook 已按架构改写为现代 CPU PyTorch；不是逐行复刻，也未沿用旧准确率宣传。24 个预测模块逐个通过 30 个历史窗口及原 5% 双基线门槛，合格才出现五交易日目标。不会自动选择历史赢家。
