@@ -1,5 +1,8 @@
 # Zeitgeist
 
+> Current frozen release and continuation guide: [../handoff.md](../handoff.md).
+> Older acceptance counts and deployment notes below are historical; use the handoff for current status.
+
 Next.js stock analysis and AI CFO chat, using Polygon, Anthropic and Supabase.
 
 The shared visual system, component conventions and responsive verification checklist are documented in [DESIGN.md](DESIGN.md).

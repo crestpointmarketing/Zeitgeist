@@ -1,5 +1,8 @@
 # DSA integration and research workspace delivery
 
+> Historical first-fork delivery record. Superseded by [the current handoff](../handoff.md).
+> The current release includes the second fork's model lab and is deployed on Vercel.
+
 This release integrates daily_stock_analysis history retrieval into Zeitgeist and adds optional news, company profiles and quarterly financial statements. The second Stock-Prediction-Models fork is not included in this release.
 
 ## Delivered

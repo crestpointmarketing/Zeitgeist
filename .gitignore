@@ -1,0 +1,3 @@
+# Local historical review exports; retained on disk, not release source.
+/review-source/
+/review-source.zip

@@ -251,7 +251,7 @@ test('expired auth redirect retains cleared cookies and original conversation de
     const values = new Map();
     return { cookies: { getAll: () => [...values.values()], set: (name, value, options) => { const cookie = typeof name === 'object' ? name : { name, value, ...options }; values.set(cookie.name, cookie); } } };
   };
-  const module = load('src/middleware.ts', {
+  const middlewareModule = load('src/middleware.ts', {
     __env: { NEXT_PUBLIC_SUPABASE_URL: 'https://example.test', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'public' },
     'next/server': { NextResponse: { next: response, redirect: url => ({ ...response(), location: url.toString() }) } },
     '@supabase/ssr': { createServerClient: (_url, _key, { cookies }) => ({ auth: { getUser: async () => {
@@ -261,7 +261,7 @@ test('expired auth redirect retains cleared cookies and original conversation de
   });
   const url = new URL('https://example.test/cfo?c=test');
   url.clone = () => new URL(url);
-  const result = await module.middleware({ nextUrl: url, cookies: { getAll: () => [], set() {} } });
+  const result = await middlewareModule.middleware({ nextUrl: url, cookies: { getAll: () => [], set() {} } });
   assert.equal(new URL(result.location).searchParams.get('next'), '/cfo?c=test');
   assert.equal(result.cookies.getAll()[0].maxAge, 0);
   assert.equal(result.cookies.getAll()[0].value, '');
