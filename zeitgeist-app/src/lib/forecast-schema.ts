@@ -4,18 +4,20 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => Number.isFinite(
 const finite = z.number().finite();
 const positive = finite.positive();
 const metric = z.object({ mae_pp: finite.nonnegative(), rmse_pp: finite.nonnegative() });
+const candidateReturns = z.object({ extra_trees: finite.gt(-100), random_forest: finite.gt(-100), ridge: finite.gt(-100) });
+const candidateMetrics = z.object({ extra_trees: metric, random_forest: metric, ridge: metric });
 export const forecastSchema = z.object({
-  version: z.literal('fork-trees-v1'), fork_commit: z.literal('33266732b0b16188b565e0aeb6b24efa71161f6a'),
+  version: z.enum(['fork-trees-v1', 'fork-comparison-v2']), fork_commit: z.literal('33266732b0b16188b565e0aeb6b24efa71161f6a'),
   ticker: z.string().regex(/^[A-Z]{1,5}$/), source: z.literal('DSA / Yahoo Finance (adjusted)'), currency: z.literal('USD'),
   generated_at: z.string().datetime({ offset: true }), as_of: day, history_start: day,
   history_bars: z.number().int().min(400).max(900), data_hash: z.string().regex(/^[a-f0-9]{16}$/),
   horizon_sessions: z.literal(5), last_close: positive, target_date: day, qualified: z.boolean(),
   forecast: z.object({ price: positive, return_pct: finite.gt(-100) }).nullable(),
   backtest: z.object({
-    model: metric, flat: metric, drift: metric, direction_hit_pct: finite.min(0).max(100).nullable(),
+    model: metric, flat: metric, drift: metric, candidates: candidateMetrics.optional(), direction_hit_pct: finite.min(0).max(100).nullable(),
     direction_samples: z.number().int().min(0).max(30),
     windows: z.array(z.object({ origin: day, target: day, training_labels_through: day,
-      model_return_pct: finite.gt(-100), actual_return_pct: finite.gt(-100), drift_return_pct: finite.gt(-100) })).length(30),
+      model_return_pct: finite.gt(-100), actual_return_pct: finite.gt(-100), drift_return_pct: finite.gt(-100), candidate_returns_pct: candidateReturns.optional() })).length(30),
   }),
   simulation: z.array(z.object({ date: day, p10: positive, p50: positive, p90: positive })).length(5),
 });
@@ -32,6 +34,22 @@ export function parseForecast(value: unknown, ticker: string, now = Date.now()):
   }
   if (windows.at(-1)!.target !== data.as_of) throw new Error('Backtest does not end at the latest session');
   const closeEnough = (a: number, b: number) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b));
+  const hasCandidates = Boolean(data.backtest.candidates);
+  if (data.version === 'fork-comparison-v2' && !hasCandidates) throw new Error('Missing comparator metrics');
+  if (windows.some(w => Boolean(w.candidate_returns_pct) !== hasCandidates)) throw new Error('Incomplete comparator observations');
+  if (hasCandidates) {
+    for (const key of ['extra_trees', 'random_forest', 'ridge'] as const) {
+      const errors = windows.map(w => w.candidate_returns_pct![key] - w.actual_return_pct);
+      const mae = errors.reduce((sum, e) => sum + Math.abs(e), 0) / errors.length;
+      const rmse = Math.sqrt(errors.reduce((sum, e) => sum + e * e, 0) / errors.length);
+      if (!closeEnough(mae, data.backtest.candidates![key].mae_pp) || !closeEnough(rmse, data.backtest.candidates![key].rmse_pp)) throw new Error('Comparator metrics do not match observations');
+    }
+    for (const w of windows) {
+      const values = w.candidate_returns_pct!;
+      const ensemble = Math.expm1((Math.log1p(values.extra_trees / 100) + Math.log1p(values.random_forest / 100)) / 2) * 100;
+      if (!closeEnough(ensemble, w.model_return_pct)) throw new Error('Primary model differs from the fixed tree ensemble');
+    }
+  }
   for (const key of ['model', 'flat', 'drift'] as const) {
     const errors = windows.map(w => (key === 'flat' ? 0 : key === 'model' ? w.model_return_pct : w.drift_return_pct) - w.actual_return_pct);
     const mae = errors.reduce((sum, e) => sum + Math.abs(e), 0) / errors.length;

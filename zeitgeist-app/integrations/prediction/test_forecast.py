@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import unittest
 import numpy as np
 import exchange_calendars as xcals
-from forecast_engine import evaluate, features, training_data, predict_at, validate_bars
+from forecast_engine import evaluate, features, training_data, predict_at, predict_candidates_at, validate_bars, metrics
 from fork_models import simulate
 
 
@@ -38,7 +38,7 @@ class ForecastTests(unittest.TestCase):
         self.assertLessEqual(before[1], 350)
 
     def test_walk_forward_windows_are_nonoverlapping_and_have_no_future_labels(self):
-        report = evaluate(history(), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel()])
+        report = evaluate(history(), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel(), MeanModel()])
         windows = report['backtest']['windows']
         self.assertEqual(len(windows), 30)
         self.assertEqual(windows[-1]['target'], report['as_of'])
@@ -49,12 +49,28 @@ class ForecastTests(unittest.TestCase):
         self.assertGreater(report['target_date'], report['as_of'])
 
     def test_flat_history_cannot_be_promoted_and_is_not_directional_accuracy(self):
-        report = evaluate(history(flat=True), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel()])
+        report = evaluate(history(flat=True), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel(), MeanModel()])
         self.assertFalse(report['qualified'])
         self.assertIsNone(report['forecast'])
         self.assertIsNone(report['backtest']['direction_hit_pct'])
         self.assertEqual(report['backtest']['direction_samples'], 0)
         self.assertTrue(all(p['p10'] == p['p90'] for p in report['simulation']))
+
+    def test_all_comparators_are_invariant_to_future_prices(self):
+        closes = np.array([b['c'] for b in history()])
+        changed = closes.copy(); changed[351:] *= 8
+        self.assertEqual(predict_candidates_at(closes, 350), predict_candidates_at(changed, 350))
+
+    def test_candidate_metrics_match_same_windows_and_do_not_select_a_new_primary(self):
+        report = evaluate(history(), 'AAPL', datetime(2026, 10, 3, tzinfo=timezone.utc), factory=lambda: [MeanModel(), MeanModel()])
+        self.assertEqual(report['version'], 'fork-comparison-v2')
+        windows = report['backtest']['windows']
+        actual = [w['actual_return_pct'] / 100 for w in windows]
+        for key in ['extra_trees', 'random_forest', 'ridge']:
+            expected = metrics([w['candidate_returns_pct'][key] / 100 for w in windows], actual)
+            self.assertEqual(expected, report['backtest']['candidates'][key])
+        backtest = report['backtest']
+        self.assertEqual(report['qualified'], backtest['model']['mae_pp'] < .95 * min(backtest['flat']['mae_pp'], backtest['drift']['mae_pp']))
 
     def test_simulation_is_reproducible_and_quantiles_are_per_horizon(self):
         closes = np.array([b['c'] for b in history()])

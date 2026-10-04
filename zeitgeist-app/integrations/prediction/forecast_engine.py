@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import numpy as np
-from fork_models import regressors, simulate
+from fork_models import regressors, simulate, linear_comparator
 
-VERSION = 'fork-trees-v1'
+VERSION = 'fork-comparison-v2'
 COMMIT = '33266732b0b16188b565e0aeb6b24efa71161f6a'
 HORIZON = 5
 LAG = 20
@@ -53,14 +53,29 @@ def training_data(closes, origin):
     return x, y, indices
 
 
-def predict_at(closes, origin, factory=regressors):
+def predict_candidates_at(closes, origin, factory=regressors):
     x, y, indices = training_data(closes, origin)
     query = features(closes, origin).reshape(1, -1)
     predictions = []
-    for model in factory():
+    models = factory()
+    if len(models) != 2:
+        raise ValueError('Expected the fixed Extra Trees and Random Forest pair')
+    for model in models:
         model.fit(x, y)
         predictions.append(float(model.predict(query)[0]))
-    return float(np.expm1(np.mean(predictions))), int(indices[-1] + HORIZON)
+    linear = linear_comparator().fit(x, y)
+    values = {'model': float(np.expm1(np.mean(predictions))),
+              'extra_trees': float(np.expm1(predictions[0])),
+              'random_forest': float(np.expm1(predictions[1])),
+              'ridge': float(np.expm1(linear.predict(query)[0]))}
+    if not all(np.isfinite(value) and value > -1 for value in values.values()):
+        raise ValueError('Invalid model prediction')
+    return values, int(indices[-1] + HORIZON)
+
+
+def predict_at(closes, origin, factory=regressors):
+    values, trained_through = predict_candidates_at(closes, origin, factory)
+    return values['model'], trained_through
 
 
 def metrics(predictions, actual):
@@ -81,17 +96,20 @@ def evaluate(bars, ticker, now=None, factory=regressors):
     origins = range(final_origin - HORIZON * TEST_WINDOWS, final_origin, HORIZON)
     windows = []
     for origin in origins:
-        prediction, trained_through = predict_at(closes, origin, factory)
+        predictions, trained_through = predict_candidates_at(closes, origin, factory)
         actual = float(closes[origin + HORIZON] / closes[origin] - 1)
         drift = float(np.expm1(np.diff(np.log(closes[origin - 60:origin + 1])).mean() * HORIZON))
         windows.append({'origin': date_of(bars[origin]), 'target': date_of(bars[origin + HORIZON]),
                         'training_labels_through': date_of(bars[trained_through]),
-                        'model_return_pct': prediction * 100, 'actual_return_pct': actual * 100,
+                        'model_return_pct': predictions['model'] * 100, 'actual_return_pct': actual * 100,
+                        'candidate_returns_pct': {key: predictions[key] * 100 for key in ['extra_trees', 'random_forest', 'ridge']},
                         'drift_return_pct': drift * 100})
     actual = [w['actual_return_pct'] / 100 for w in windows]
     model = metrics([w['model_return_pct'] / 100 for w in windows], actual)
     flat = metrics(np.zeros(len(windows)), actual)
     drift = metrics([w['drift_return_pct'] / 100 for w in windows], actual)
+    candidates = {key: metrics([w['candidate_returns_pct'][key] / 100 for w in windows], actual)
+                  for key in ['extra_trees', 'random_forest', 'ridge']}
     directional = [w for w in windows if abs(w['actual_return_pct']) > 1e-10]
     direction_hit = (sum(np.sign(w['actual_return_pct']) == np.sign(w['model_return_pct'])
                          for w in directional) / len(directional) * 100) if directional else None
@@ -114,7 +132,7 @@ def evaluate(bars, ticker, now=None, factory=regressors):
         'horizon_sessions': HORIZON, 'last_close': float(closes[-1]),
         'target_date': future[-1].strftime('%Y-%m-%d'), 'qualified': qualified,
         'forecast': {'price': float(closes[-1] * (1 + prediction)), 'return_pct': prediction * 100} if qualified else None,
-        'backtest': {'windows': windows, 'model': model, 'flat': flat, 'drift': drift,
+        'backtest': {'windows': windows, 'model': model, 'flat': flat, 'drift': drift, 'candidates': candidates,
                      'direction_hit_pct': direction_hit, 'direction_samples': len(directional)},
         'simulation': [{'date': day.strftime('%Y-%m-%d'), 'p10': float(values[0]),
                         'p50': float(values[1]), 'p90': float(values[2])}

@@ -5,6 +5,9 @@ and log-return Monte Carlo with per-horizon quantiles instead of pooled prices.
 """
 import numpy as np
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def regressors():
@@ -12,6 +15,12 @@ def regressors():
     settings = dict(n_estimators=64, max_depth=6, min_samples_leaf=8,
                     random_state=42, n_jobs=1)
     return [ExtraTreesRegressor(**settings), RandomForestRegressor(**settings)]
+
+
+def linear_comparator():
+    # New Zeitgeist comparator, not an upstream notebook model. Scaling is fit
+    # separately inside each historical training window, never on future rows.
+    return make_pipeline(StandardScaler(), Ridge(alpha=10.0))
 
 
 def simulate(closes, days=5, paths=2000):

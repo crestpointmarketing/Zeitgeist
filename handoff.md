@@ -2,6 +2,15 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
+### 固定版之后：预测功能第二阶段
+
+`v2026.10.04-stable` 已推送，固定提交为 `3ce616600f047943eab3518a2a8520de677d2feb`。
+后续在 `codex/prediction-validation-v2` 开发，不移动固定标签。
+新增协议 `fork-comparison-v2`：单独比较两种树模型和固定参数 Ridge；逐窗口校验候选指标；解释发布门槛、展示三个时间区段及预测/实际图表；导出 CSV/JSON；加入可重复运行的多股票验证脚本。
+主模型和发布门槛保持不变，比较结果不自动替换主模型；尚未证明提高预测准确率。
+模型来源、边界和验证命令见 `zeitgeist-app/integrations/prediction/PROVENANCE.md`。
+第二阶段验证：82 Node + 9 DSA + 8 预测测试（99 项），lint 与生产构建通过；四只真实股票每只 754 条历史记录、30 个窗口，运行约 14–17 秒，均未通过主模型预测门槛，未宣称准确率提升。可移植结果见 `zeitgeist-app/integrations/prediction/COMPARISON-VERIFICATION.md`。
+
 ## 1. 固定版本与当前结论
 
 - 固定标签：`v2026.10.04-stable`（annotated Git tag；应与远程同名标签一致）。

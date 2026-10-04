@@ -751,6 +751,62 @@ function forecastFixture(qualified = true) {
 const forecasts = load('src/lib/forecast-schema.ts');
 const forecastNow = Date.parse('2026-10-03T13:00:00Z');
 
+function comparisonFixture() {
+  const report = forecastFixture(false);
+  report.version = 'fork-comparison-v2';
+  report.backtest.candidates = { extra_trees: { mae_pp: 1, rmse_pp: 1 }, random_forest: { mae_pp: 1, rmse_pp: 1 }, ridge: { mae_pp: 0, rmse_pp: 0 } };
+  report.backtest.windows.forEach(w => { w.candidate_returns_pct = { extra_trees: 0, random_forest: 0, ridge: 1 }; });
+  return report;
+}
+
+test('comparison reports cannot silently promote a better retrospective comparator', () => {
+  const report = forecasts.parseForecast(comparisonFixture(), 'AAPL', forecastNow);
+  assert.equal(report.backtest.candidates.ridge.mae_pp, 0);
+  assert.equal(report.qualified, false);
+  assert.equal(report.forecast, null);
+  for (const change of [r => delete r.backtest.candidates, r => delete r.backtest.windows[0].candidate_returns_pct,
+    r => r.backtest.candidates.ridge.mae_pp = .5, r => r.backtest.windows[0].candidate_returns_pct.ridge = -100,
+    r => { r.qualified = true; r.forecast = { price: 101, return_pct: 1 }; }]) {
+    const invalid = comparisonFixture(); change(invalid);
+    assert.throws(() => forecasts.parseForecast(invalid, 'AAPL', forecastNow));
+  }
+});
+
+test('ensemble identity rejects different members even when their metric summaries agree', () => {
+  const report = comparisonFixture();
+  // 0 and 2 are both one point from the actual return of 1, but the ensemble
+  // must still be the geometric mean of the two member returns.
+  report.backtest.windows.forEach(w => { w.candidate_returns_pct.extra_trees = 2; });
+  assert.throws(() => forecasts.parseForecast(report, 'AAPL', forecastNow), /fixed tree ensemble/);
+});
+
+test('diagnostics preserve units, report zero baseline headroom and export actual observations', () => {
+  const tools = load('src/lib/forecast-diagnostics.ts');
+  const report = comparisonFixture();
+  const result = tools.diagnostics(report);
+  assert.equal(result.threshold, .95);
+  assert.equal(result.flatImprovement, 0);
+  assert.equal(result.driftImprovement, 50);
+  assert.equal(result.blocks.length, 3);
+  assert.ok(result.blocks.every(b => b.model === 1 && !b.passes));
+  assert.equal(tools.improvement(1, 0), null);
+  assert.equal(tools.improvement(2, 1), -100);
+  assert.equal(tools.windowMetrics(forecastFixture().backtest.windows, 'ridge'), null);
+  const rows = tools.backtestCsv(report).split('\r\n');
+  assert.equal(rows.length, 31);
+  assert.ok(rows[0].includes('training_labels_through'));
+  assert.equal(rows[1].split(',')[6], '1');
+  assert.equal(rows[1].split(',')[10], '1');
+});
+
+test('comparison UI exposes diagnostic charts and exports without inventing a forecast', () => {
+  const React = dependency('react'), { renderToStaticMarkup } = dependency('react-dom/server');
+  const { ForecastResults } = load('src/components/forecast-lab.tsx');
+  const html = renderToStaticMarkup(React.createElement(ForecastResults, { report: comparisonFixture() }));
+  for (const text of ['Why this result?', 'Extra Trees', 'Random Forest', 'Ridge (comparator)', 'Earlier', 'Recent', 'Download backtest CSV', 'Download full report']) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /Experimental target:/);
+});
+
 test('forecast validation verifies observed errors, baseline gate and target price arithmetic', () => {
   assert.equal(forecasts.parseForecast(forecastFixture(), 'AAPL', forecastNow).qualified, true);
   assert.equal(forecasts.parseForecast(forecastFixture(false), 'AAPL', forecastNow).forecast, null);

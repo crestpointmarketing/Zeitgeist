@@ -17,7 +17,37 @@ Report MAE/RMSE of five-session returns in percentage points, plus the sign hit 
 
 The small latest-window comparison does not establish profitability, statistical significance, robustness across regimes or calibrated uncertainty. Yahoo's currently adjusted history is not point-in-time archival data; corporate-action revisions and symbol selection limit this retrospective test. No trading strategy, costs, slippage or portfolio risk are modeled. Monte Carlo assumes stationary independent normally distributed log returns and can underestimate shocks.
 
-## Runtime
+## Comparison extension — 2026-10-04
+
+Protocol `fork-comparison-v2` retains the preselected tree ensemble and the same
+publication gate. It also reports the Extra Trees and Random Forest members
+separately on exactly the same 30 test windows. No additional tree fits are needed.
+
+A new Zeitgeist-authored Ridge comparator uses `StandardScaler` followed by
+`Ridge(alpha=10.0)` on the same feature rows and mature return labels. This is not
+claimed as code from the upstream notebooks. The scaler is fitted anew inside each
+historical training window; neither it nor the estimator sees future targets.
+Alpha and all other model settings are fixed before the reported evaluation.
+
+Comparator results are diagnostic only: no retrospective winner selection, no
+automatic promotion and no additional future price target are introduced. All
+candidate metrics are recomputed from their observations at the TypeScript boundary,
+which also verifies the ensemble's mean-log-return identity. The three 10-window
+blocks in the UI are descriptive slices, not independent holdouts or new gates.
+Percentage error reduction is not investment return. Monte Carlo remains separate
+and uncalibrated. The client accepts v1 reports during a rolling deployment; v2
+reports must contain all comparator observations and metrics.
+
+The reproducible live smoke benchmark is `benchmark.py`. It runs a fixed requested
+symbol list sequentially, retains failures, records timings and per-symbol data
+fingerprints, and exports JSON reports. It makes no AI calls and tunes no settings.
+Its selected symbols do not establish cross-market generalization. Example:
+
+```powershell
+python integrations/prediction/benchmark.py --dsa-repo /path/to/daily_stock_analysis --tickers AAPL MSFT NVDA TSLA --output reports/prediction-v2-benchmark
+```
+
+## Runtime (both protocols)
 
 The bridge has a separate one-worker forecast lock, a 45-second subprocess deadline and a one-hour in-memory cache. The existing market budget governs authenticated `/api/forecast` calls, including cached requests. No paid AI call is made. CPU workers cannot receive browser-specified tree counts, horizons or filesystem paths. No SQL migration or model binary deserialization is needed. Model reports are not passed to the LLM as established facts.
 
