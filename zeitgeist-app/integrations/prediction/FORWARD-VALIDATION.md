@@ -31,11 +31,20 @@ also produces a warning. Retrying can save a record; it never overwrites one.
 
 ## Outcome checks
 
-`vercel.json` schedules `/api/cron/forecast-settlement` at minute 15 of every UTC
-hour. `CRON_SECRET` is a server-only random value of at least 32 characters,
-configured for Vercel Production. Vercel sends it as a Bearer token. Matching
-User-Agent headers do not authenticate a call. Preview deployments have no
-scheduled checks. See [Vercel cron management](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+Supabase Cron schedules `dispatch_forecast_check()` at minute 15 of every UTC
+hour, job name `zeitgeist-forward-validation`. It uses `pg_net` to call the fixed
+production URL `/api/cron/forecast-settlement`. `CRON_SECRET` is a server-only
+random value of at least 32 characters, configured for Vercel Production and
+stored as `zeitgeist_forecast_cron_secret` in Supabase Vault. The dispatcher reads
+it at runtime and sends a Bearer token; its SQL contains no plaintext secret.
+Only the server role may call the dispatcher. Matching User-Agent headers do not
+authenticate the HTTP endpoint. Preview deployments have no scheduled checks.
+See [Supabase scheduling](https://supabase.com/docs/guides/functions/schedule-functions)
+and [Cron quickstart](https://supabase.com/docs/guides/cron/quickstart).
+
+The initial Vercel Services deployment accepted a top-level `crons` key without
+registering a job in the dashboard. The key has been removed. Supabase is the sole
+scheduler; do not configure a second scheduler in Vercel.
 
 A database lease prevents overlapping workers. It expires after 90 seconds;
 only the lease owner can release it. Each 60-second invocation reads the oldest
@@ -78,6 +87,10 @@ of accuracy; per-model counts may cover different stocks and are not a fair rank
 - Apply `supabase/migrations/20261004_forward_validation.sql` once. It is additive;
   the existing app can run while the new tables are present. Applied to the
   production project on 2026-10-04.
+- Store the matching secret through Supabase Vault's UI, then apply
+  `20261004_forward_scheduler.sql`. It enables pg_cron/pg_net, adds dispatch
+  metadata, and creates the fixed-target dispatcher and named job. Rotations
+  must update both Vault and the Vercel environment followed by redeployment.
 - `tests/forward.sql` checks immutable insert semantics, timing, role grants,
   cross-account RLS and lease ownership inside a rollback-only transaction. Run
   it only while no reconciliation worker holds the lease.
@@ -85,15 +98,21 @@ of accuracy; per-model counts may cover different stocks and are not a fair rank
   server role. The timestamp means the last worker finished, even if summary says
   `failed`; it does not mean any prediction matured. Expired leases recover on the
   next invocation. `forecast_checks` retains attempts, next retry, reason and outcome.
+- The dispatch timestamp/request ID are separate from worker completion. Cron
+  history reporting SQL success only means the HTTP request was queued. Inspect
+  `net._http_response` for that ID (status_code, timed_out, error_msg, content) and
+  the reconciliation heartbeat to confirm HTTP execution. Do not select request
+  headers or decrypted Vault values in logs. pg_net response history is temporary.
 - Existing records are never backfilled from old experiments. The first records
   based on 2026-10-02 close target 2026-10-09. Real performance is unknown until
   those outcomes are available.
 - No email alerts or broker execution. This is an account-level research record.
   At larger scale, replace the small hourly batch with a durable queue before
   promising timely checks for a large backlog.
-- Rollback: redeploy the previous fixed application tag, which removes the new
-  cron configuration. Preserve the additive tables and records. Do not drop data
-  or move existing release tags.
+- Rollback: deactivate `zeitgeist-forward-validation` in Supabase Cron before
+  deploying the previous application tag. Database jobs persist across Vercel
+  rollbacks. Preserve the additive tables and records. Do not drop data or move
+  existing release tags. Reactivate the same job when the endpoint is restored.
 
 ## Verification
 

@@ -2,7 +2,23 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
-### 当前增量：第三个 fork 的扩展研究实验室
+### 当前增量：预测记录、到期验证与模型成绩单
+
+开发分支 `codex/forward-validation`，基于固定版 `v2026.10.04-research-lab`。功能提交 `d3e37b75117d41e860180f4c992181ed82f4525c`，窄屏修正 `55731dbfc1f84f8e68c907ba077279f50141ea38` 已上线。生产功能部署 [Vercel oXvzwVfj3](https://vercel.com/crestpointmarketings-projects/zeitgeist/oXvzwVfj3TcJuDoj4FGL7sABYJ6w) 状态为 success，正式站完成 demo 验收。固定标签 `v2026.10.04-forward-validation` 包含随后补充的调度及交接记录；不要移动已有历史标签。
+
+- 新入口：股票 → More → Model lab → **Forward performance**。显示当前股票/所有股票的本人记录、待验证/未发布/已完成状态、模型与两条基线的误差、方向命中率；支持刷新和 JSON 导出。模型参数及原发布门槛不变。
+- 服务器自动保存原 v3 两个候选及 24 个研究预测模块；纸面策略和风险情景不作为预测入账。同账户/股票/模型/版本/原点日期只保留第一条；保存完整模型输入、原报告、输入 SHA-256、代码提交及数据指纹。原始记录对 service role 也没有 UPDATE 权限。
+- 数据库权威时间控制：必须在下一交易日开盘前保存且生成时间距保存不超过两小时，才计入前瞻统计。迟到记录排除，未过发布门槛的预测为 null，不伪装成零收益。旧回测不补录，保存失败有明确提示。
+- 到期按 XNYS 的五个交易日核对，兼容节假日/提前收盘。收盘后 20 分钟才可检查；原点与目标日使用同一套最新复权数据计算实际收益，记录调整比例。缺失精确日期则待重试，不用相邻日期替代，不重训模型。
+- 增量迁移 `zeitgeist-app/supabase/migrations/20261004_forward_validation.sql` **已在正式 Supabase 执行**。新增 forecast_records / forecast_checks / forecast_reconciliation、RLS、两个触发器和服务端租约 RPC。`tests/forward.sql` 在正式 DB 的回滚事务中验证时间、去重、权限、跨账户隔离和锁；无测试用户/记录残留。
+- **实际调度位于 Supabase Cron**，任务名 `zeitgeist-forward-validation`，每小时 UTC 第 15 分钟。Vercel Services 本次部署未注册顶层 crons，故移除无效配置；不能按 Vercel Cron 排查。新增 `20261004_forward_scheduler.sql` 已应用，pg_cron + pg_net 调用固定生产路径 `/api/cron/forecast-settlement`。`CRON_SECRET` 在 Vercel Production、本机 `.env.local` 和 Supabase Vault 的 `zeitgeist_forecast_cron_secret` 中一致保存，值不入 SQL/Git。仅服务器可触发 dispatcher；账户不可读 Vault。90 秒共享租约防重入，每次最多两组股票/日期、读取最多 100 个到期记录，失败延后一小时。大规模使用需换持久队列。
+- 本地验收：103 Node + 13 DSA + 19 模型测试，共 **135 项**；生产构建含 lint/类型检查通过。demo 的 **19 项接口验收**通过；真实 AAPL 9/25→10/2 到期取价返回六个精确交易日并通过 TS 校验。刷新、全部股票、JSON 导出、390/320px 无页面横向溢出；修正 320px 模型选择器被按钮挤窄的问题。
+- demo 的 AAPL 三条真实新记录由本地固定源码 d3e37b7 保存；TSLA 三条由生产源码 55731db 保存。目标日均为 **2026-10-09**，共 6 条；AAPL 双向 GRU 通过历史门槛，其余 5 条未发布。当前没有成熟的前瞻结果，不能宣称预测准确率提升。这些是本轮真实模型运行，不是伪造未来测试数据。
+- 生产 **19 项接口检查**通过：demo 登录、匿名拒绝、输入验证、保存/去重/不可改写、原 v3、风险排除、RLS、无虚构成绩、鉴权核对接口和任务心跳。AAPL 浏览器确认记录状态及保存提示跳转，全部股票视图和 JSON 导出正常。
+- Supabase 调度已启用（job ID 1）。2026-10-04 17:55:21 UTC 手动触发同一个数据库 dispatcher，pg_net 请求 ID 1 返回 **HTTP 200**、无超时，17:55:22 UTC 心跳为 complete / checked 0 / settled 0；零到期任务符合当前日期。证据位于忽略目录 `zeitgeist-app/reports/forward-dispatch-proof.json`；正式界面截图 `forward-production.png`。已验证数据库→正式接口链路，首个真实到期结果仍须等待 10 月 9 日。
+- 详细协议、统计口径、限制、排障及回滚见 `zeitgeist-app/integrations/prediction/FORWARD-VALIDATION.md`。视图覆盖最近 90 天/最多 500 条，详情展示 20 条；截断有提示，误差以百分点计。不同模型样本集合可能不同，不能把成绩单当排行榜。
+
+### 历史增量：第三个 fork 的扩展研究实验室
 
 开发分支 `codex/full-prediction-lab`，基于已上线的 `v2026.10.04-navigation`（`1135862`）。功能提交 `030372639493c2b3a3479a99f085630b01f3bfd4` 已部署到正式域名并验收；固定标签为 `v2026.10.04-research-lab`（包含随后补充的交接记录）。须以远程标签和 Vercel source commit 核对当前状态，不能把开发完成等同于上线完成。
 
@@ -50,7 +66,7 @@
 - 前一个已部署且回归通过的功能基线：`6f741024bb2c8d232ade5eb8bd13b70b6e7310c0`。
 - 仓库：`https://github.com/crestpointmarketing/Zeitgeist`。
 - 生产站点：`https://zeitgeiststocks.com`。
-- 本地最新工作分支：`codex/full-prediction-lab`；生产部署跟踪远程 `main`。本节 stable 标签是历史恢复点，最新增量见本文开头。
+- 本地最新工作分支：`codex/forward-validation`；生产部署跟踪远程 `main`。本节 stable 标签是历史恢复点，最新增量见本文开头。
 - Vercel：team `crestpointmarketings-projects`，project `zeitgeist`。
 - 标签是恢复源码的依据，不是数据库、密钥或上游服务状态的快照。不要移动或覆盖此标签；后续修改使用新分支、新提交和新标签。
 - 当前已验证范围无已知阻断问题。未验证项及外部限制见第 9 节；不能解释为绝对零缺陷。
@@ -166,11 +182,11 @@ Next.js 15 / React 19 / TypeScript / Tailwind；Supabase Auth + Postgres；Anthr
 - 本机仓库：`C:/Users/Vivian/Documents/ChatGPT/Zeitgeist`。
 - Web 本地配置：`zeitgeist-app/.env.local`；模板 `.env.example`。
 - Bridge 本地配置：`zeitgeist-app/integrations/dsa/.env`；模板同目录 `.env.example`。
-- 所需键：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`ANTHROPIC_API_KEY`、`ANTHROPIC_MODEL`、`ANTHROPIC_CHAT_MODEL`、`POLYGON_API_KEY`、`MARKET_DATA_PROVIDER`、`DSA_BASE_URL`、`DSA_SERVICE_TOKEN`；本地另有 `DSA_REPO_PATH`、可选 `DSA_PYTHON`。
+- 所需键：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`ANTHROPIC_API_KEY`、`ANTHROPIC_MODEL`、`ANTHROPIC_CHAT_MODEL`、`POLYGON_API_KEY`、`MARKET_DATA_PROVIDER`、`DSA_BASE_URL`、`DSA_SERVICE_TOKEN`、`CRON_SECRET`；本地另有 `DSA_REPO_PATH`、可选 `DSA_PYTHON`。CRON_SECRET 同时保存于 Supabase Vault 的专用命名密钥中，见本文开头。
 - 当前部署使用 DSA；未配置 provider 时源码默认 Polygon。模型模板默认 `claude-sonnet-5-5`，实际以部署环境变量和服务端可用性为准。
 - Supabase 项目 `lgjlwpklmtmtrudmtjpq`。demo 登录标识 `demo@gmail.com`；密码不写入仓库或本文，需从已有授权凭据获取。
 - demo 的服务端 `app_metadata.quota_exempt=true`；由 `getUser()` 实时确认，不能相信客户端可修改 metadata。此豁免不解除第三方限额。
-- 新数据库依次应用 `supabase/schema.sql`、`supabase/migrations/20261002_api_usage.sql`、`20261003_generation_cache.sql`。当前生产已配置；这些文件含非幂等 DDL，不要重复全量执行。
+- 新数据库依次应用 `supabase/schema.sql`、`supabase/migrations/20261002_api_usage.sql`、`20261003_generation_cache.sql`、`20261004_forward_validation.sql`；配置 Vault 密钥后再应用 `20261004_forward_scheduler.sql`。新环境应先审查 scheduler 中固定的生产域名，避免测试库定时触发正式站。当前生产已配置；这些文件含非幂等 DDL，不要重复全量执行。回滚旧代码前先停用 Supabase 中的命名任务，数据库任务不会随 Vercel 回滚停止。
 - 表：`conversations`、`messages`、`api_usage`、`api_leases`、`market_snapshots`、`generation_jobs`。
 - 会话和消息有 RLS；内部快照和生成表只允许服务端。聊天重试使用相同 message ID，已完成回答重放，不重新调用模型。
 - Watchlist 最多 30 个代码，存在用户 metadata；仅为偏好，不是权限；多设备并发最后写入者覆盖。
