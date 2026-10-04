@@ -42,7 +42,9 @@ export async function middleware(request: NextRequest) {
     loginUrl.pathname = '/login';
     loginUrl.search = '';
     loginUrl.searchParams.set('next', pathname + search);
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    supabaseResponse.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
+    return redirect;
   }
 
   return supabaseResponse;

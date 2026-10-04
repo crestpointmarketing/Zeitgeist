@@ -220,6 +220,52 @@ for (const state of ['ready', 'pending', 'claimed', 'failure']) test('analysis c
 });
 
 const flow = load('src/lib/stock-flow.ts');
+test('market deadline ends stalled requests without publishing prices or starting AI', async () => {
+  const timeout = new AbortController();
+  const bounded = load('src/lib/stock-flow.ts', { __AbortSignal: {
+    timeout: ms => { assert.equal(ms, 45000); return timeout.signal; },
+    any: signals => AbortSignal.any(signals),
+  } });
+  let calls = 0;
+  const task = bounded.runStockSearch('AAPL', new AbortController().signal, () => assert.fail('no prices'), (_url, { signal }) => {
+    calls++;
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  });
+  timeout.abort();
+  await assert.rejects(task, /longer than 45 seconds/);
+  assert.equal(calls, 1);
+});
+
+test('gateway HTML and null bodies produce actionable errors with preserved HTTP status', async () => {
+  for (const response of [new Response('<html>Gateway timeout</html>', { status: 504 }), Response.json(null, { status: 503 })]) {
+    await assert.rejects(flow.runStockSearch('AAPL', new AbortController().signal, () => assert.fail('no prices'), async () => response), error => {
+      assert.equal(error.status, response.status);
+      assert.match(error.message, /try again shortly/);
+      return true;
+    });
+  }
+});
+
+test('expired auth redirect retains cleared cookies and original conversation destination', async () => {
+  const response = () => {
+    const values = new Map();
+    return { cookies: { getAll: () => [...values.values()], set: (name, value, options) => { const cookie = typeof name === 'object' ? name : { name, value, ...options }; values.set(cookie.name, cookie); } } };
+  };
+  const module = load('src/middleware.ts', {
+    __env: { NEXT_PUBLIC_SUPABASE_URL: 'https://example.test', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'public' },
+    'next/server': { NextResponse: { next: response, redirect: url => ({ ...response(), location: url.toString() }) } },
+    '@supabase/ssr': { createServerClient: (_url, _key, { cookies }) => ({ auth: { getUser: async () => {
+      cookies.setAll([{ name: 'session', value: '', options: { maxAge: 0, path: '/' } }]);
+      return { data: { user: null } };
+    } } }) },
+  });
+  const url = new URL('https://example.test/cfo?c=test');
+  url.clone = () => new URL(url);
+  const result = await module.middleware({ nextUrl: url, cookies: { getAll: () => [], set() {} } });
+  assert.equal(new URL(result.location).searchParams.get('next'), '/cfo?c=test');
+  assert.equal(result.cookies.getAll()[0].maxAge, 0);
+  assert.equal(result.cookies.getAll()[0].value, '');
+});
 test('analysis deadline aborts a stalled fetch and preserves caller cancellation semantics', async () => {
   const timeout = new AbortController();
   const bounded = load('src/lib/stock-flow.ts', { __AbortSignal: {

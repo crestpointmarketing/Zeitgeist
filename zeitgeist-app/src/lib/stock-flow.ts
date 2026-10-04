@@ -8,7 +8,10 @@ export type MarketResult = StockSnapshot & { snapshot_id: string };
 export type AnalysisResult = { status: 'ready'; analysis: StockAnalysis; cached: boolean };
 
 async function responseData(response: Response) {
-  const body = await response.json();
+  let body;
+  try { body = await response.json(); }
+  catch { throw new StockResponseError('The service returned an unreadable response. Please try again shortly.', response.status); }
+  if (!body || typeof body !== 'object') throw new StockResponseError('The service returned an empty response. Please try again shortly.', response.status);
   if (!response.ok || !body.success) throw new StockResponseError(body.error?.message || 'Request failed.', response.status);
   return body.data;
 }
@@ -43,7 +46,16 @@ export async function fetchAnalysis(snapshotId: string, signal: AbortSignal, req
 }
 
 export async function runStockSearch(ticker: string, signal: AbortSignal, onStock: (data: MarketResult) => void, request = fetch) {
-  const data: MarketResult = await responseData(await request('/api/stock?ticker=' + encodeURIComponent(ticker) + '&include_history=true', { signal }));
+  const timeout = AbortSignal.timeout(45000);
+  const boundedSignal = AbortSignal.any([signal, timeout]);
+  let data: MarketResult;
+  try {
+    data = await responseData(await request('/api/stock?ticker=' + encodeURIComponent(ticker) + '&include_history=true', { signal: boundedSignal }));
+  } catch (error) {
+    if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    if (timeout.aborted) throw new Error('Market data took longer than 45 seconds. Please try again shortly.');
+    throw error;
+  }
   if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
   onStock(data); // Publish prices before waiting for the model.
   return fetchAnalysis(data.snapshot_id, signal, request);
