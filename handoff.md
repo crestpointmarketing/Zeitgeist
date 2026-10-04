@@ -2,9 +2,9 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
-### 当前增量：持久研究工作区（发布验收中）
+### 当前固定版：持久研究工作区
 
-开发分支 `codex/research-workspace`，基于 `v2026.10.04-forward-validation` / `d958924`。本节在生产验收后补充精确提交与部署状态；此前固定标签全部保留。
+开发分支 `codex/research-workspace`，基于 `v2026.10.04-forward-validation` / `d958924`。功能提交 `75217ccc95cab65056838cc89ab137aece07b710` 已上线，[正式部署 dN96Q165z](https://vercel.com/crestpointmarketings-projects/zeitgeist/dN96Q165zNcGcV2mvouWf5myzqes) 为 Ready / Production，域名及源码已核对。后续记录入口修正与本交接收尾包含在固定标签 `v2026.10.04-research-workspace` 中；以远程标签解析精确最终提交。此前所有历史标签保留不动。
 
 - `/research` 新增持久后台任务：模型实验、每日研究、组合研究和多股票证据对比；关闭页面后由数据库队列续跑。分步检查点、90 秒排他租约、三次自动重试、排队取消、失败重试、结果保存/JSON 导出和未读提示。沿用账户与全局 API 额度；demo 的既有额度豁免保留，队列容量控制不豁免。
 - Watchlist 从 auth metadata 一次迁移至有 RLS 的独立表；原子增删，最多五只可选择开启每日研究，默认关闭。日历按实际 XNYS 收盘（含节假日/提前收盘），延迟 20 分钟；18 小时外不补建过期任务。每日摘要包含证据、风险和相对上次的变化，复权变化使用同一份新快照的精确日期数据。
@@ -12,12 +12,14 @@
 - 组合研究从离线 CLI 扩展到线上：2–6 只美国 USD 股票、自定义权重、252 个训练收益/60 个留出收益；与等权及训练期最小方差组合比较，包含每侧 10bp 费用、逐日曲线/表格和权重。不存在真实下单。
 - AI CFO 可加载本账户已完成的每日/对比任务，服务器读取实际行情及来源并持久化会话引用。结果通知、`/research/status` 调度健康/个人失败率/处理 P95 已加入。模型详情继续支持历史窗口键盘核对。
 - `20261004_research_workspace.sql` 与 `20261004_prediction_intervals.sql` 已应用正式数据库。自定义持久队列表及 RPC，不是 pgmq。浏览器不能读取私有检查点/租约，不能伪造结果或调用代扣额度 RPC。新增 service role 的 impersonation 只在受控事务内执行，检查账号可用性。
-- 待正式接口部署验收后执行 `20261004_research_scheduler.sql`：每分钟 worker、每 15 分钟每日任务资格检查；复用现有 Vault/CRON_SECRET，无新密钥。原每小时 forward-validation 调度保持。回滚源码前必须停用两个新 Cron；保留表及记录。
+- `20261004_research_scheduler.sql` **已应用**：Supabase Cron job 2 每分钟 worker，job 3 每 15 分钟每日任务资格检查；复用现有 Vault/CRON_SECRET，无新密钥。原 job 1 每小时 forward-validation 保持。手动 dispatcher 请求 6/7 均 HTTP 200；20:54 UTC 真实定时运行产生请求 8，HTTP 200 且心跳更新。周日 daily 返回 scheduled=0 符合交易日历，不能声称周日生成了自动日报。回滚源码前必须停用两个新 Cron；保留表及记录。
 - 本地验证：112 Node + 13 DSA + 22 预测/组合测试，共 **147 项**；TypeScript/lint/生产构建通过。真实 demo 四种任务和 CFO 共 **32 项接口检查**，取消/租约崩溃恢复/旧租约拒绝/重试 **7 项**。10 个相同并发提交仅生成一项；60 次读取/鉴权、10 并发零异常，本地 P95 298ms。390/320px 无横向溢出。
-- 真实邮件：用户确认找回密码邮件已收到；经授权 Gmail 别名注册并已在 Supabase 确認完成。未修改已有账号密码，测试密码未保存。认证测试不绕过邮箱确认。
+- 真实邮件：用户确认找回密码邮件已收到；经授权 Gmail 别名注册并已在 Supabase 确认完成。未修改已有账号密码，测试密码未保存。认证测试不绕过邮箱确认。
 - 应用数据备份以 AES-256-GCM 加密，密钥由本机当前用户 Windows DPAPI 保护；七张表已恢复到独立 PGlite PostgreSQL 并逐行/约束/FK 核对。**这不是完整托管灾备演练**：不含 auth users、Vault、RLS/托管配置、跨机器密钥恢复或事务一致 PITR。实际脚本/边界见下方协议；私有产物仅在忽略的 reports 中。
 - `npm audit --omit=dev` 为 0；完整 audit 仍有五项开发工具链 high（braces 传递依赖，注册表暂无修复版）。未通过强制降级 lint 工具规避报告。队列单全局 worker、每日设置扫描上限 1000，详细容量边界均有记录。
-- 完整功能、协议、部署顺序、验证命令与恢复限制：`zeitgeist-app/integrations/prediction/RESEARCH-WORKSPACE.md`。最新生产证据待发布验收补充，不应把本地完成当成上线完成。
+- 正式 demo **32/32** 检查通过，重新运行 TSLA/ARIMA、MSFT 每日摘要、MSFT/NVDA 组合及多股票对比，全部真实完成，CFO 使用已保存证据并持久化上下文。正式 60 次读取/鉴权、10 并发零异常，P95 **622ms**（仅有界读取压力，不是模型吞吐 SLA）。浏览器发现并修复后台模型结果的前瞻记录空锚点：当前页补充 Forward performance，继续提供配对比较和导出；加载结果与提交任务的文字状态分开。修正后 112 Node 回归及生产构建再通过。
+- 本机证据（均在忽略目录）：`reports/workspace-production.json`、`workspace-load-production.json`、`workspace-recovery.json`、`research-dispatch-proof.json`、`workspace-restore.json`。注册/恢复邮箱实际投递已确认。备份脚本按主键稳定分页，但仍不提供事务一致快照。
+- 完整功能、协议、部署顺序、验证命令与恢复限制：`zeitgeist-app/integrations/prediction/RESEARCH-WORKSPACE.md`。正式验收不等于未来绝对零缺陷；预测区间校准和实际未来成绩仍须积累到期样本。
 
 ### 历史增量：预测记录、到期验证与模型成绩单
 
@@ -83,7 +85,7 @@
 - 前一个已部署且回归通过的功能基线：`6f741024bb2c8d232ade5eb8bd13b70b6e7310c0`。
 - 仓库：`https://github.com/crestpointmarketing/Zeitgeist`。
 - 生产站点：`https://zeitgeiststocks.com`。
-- 本地最新工作分支：`codex/forward-validation`；生产部署跟踪远程 `main`。本节 stable 标签是历史恢复点，最新增量见本文开头。
+- 本地最新工作分支：`codex/research-workspace`；生产部署跟踪远程 `main`。本节 stable 标签是历史恢复点，最新增量见本文开头。
 - Vercel：team `crestpointmarketings-projects`，project `zeitgeist`。
 - 标签是恢复源码的依据，不是数据库、密钥或上游服务状态的快照。不要移动或覆盖此标签；后续修改使用新分支、新提交和新标签。
 - 当前已验证范围无已知阻断问题。未验证项及外部限制见第 9 节；不能解释为绝对零缺陷。

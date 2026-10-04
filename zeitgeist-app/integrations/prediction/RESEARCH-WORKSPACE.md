@@ -141,3 +141,8 @@ restored from encrypted backup with exact typed row checks and foreign keys.
 390/320px mobile views have no horizontal page overflow. Email recovery delivery
 was user-confirmed; the separately authorized signup alias reached confirmed
 state in Supabase. Production evidence and final source revision go in handoff.md.
+
+Production: 32 demo checks passed using new TSLA/MSFT/NVDA tasks. Sixty reads
+with concurrency 10 returned no unexpected statuses; P95 622ms. Supabase Cron
+worker and daily-dispatch HTTP calls returned 200; a real minute tick also
+updated the heartbeat. Sunday scheduling returned zero as expected.
