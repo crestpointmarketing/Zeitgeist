@@ -58,6 +58,19 @@ class BridgeTests(unittest.TestCase):
             for _ in range(2): self.assertEqual(self.client.get('/v1/forecast/AAPL', headers=self.headers).status_code, 200)
             self.assertEqual(run.call_count, 1)
 
+    def test_research_validates_model_and_isolates_cached_models(self):
+        with patch('bridge.subprocess.run') as run:
+            self.assertEqual(self.client.get('/v1/research/AAPL?model=lstm').status_code,401)
+            self.assertEqual(self.client.get('/v1/research/AAPL?model=unknown',headers=self.headers).status_code,400)
+            run.assert_not_called()
+        result=subprocess.CompletedProcess([],0,stdout='{"version":"test"}')
+        with patch('bridge.subprocess.run',return_value=result) as run:
+            for model in ['lstm','lstm','gru']:
+                self.assertEqual(self.client.get(f'/v1/research/AAPL?model={model}',headers=self.headers).status_code,200)
+            self.assertEqual(run.call_count,2)
+            self.assertEqual(run.call_args.kwargs['timeout'],45)
+            self.assertEqual(run.call_args.args[0][-1],'gru')
+
     def test_early_close_holiday_and_unfinished_sessions(self):
         frame = pd.DataFrame([dict(date=day, open=100, high=102, low=99, close=101, volume=1000)
                               for day in ['2026-11-26', '2026-11-27', '2026-11-30']])

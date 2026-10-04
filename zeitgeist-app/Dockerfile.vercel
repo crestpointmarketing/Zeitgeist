@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     DSA_REPO_PATH=/opt/daily_stock_analysis PORT=8001
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates libgomp1 \
     && git init /opt/daily_stock_analysis \
     && git -C /opt/daily_stock_analysis remote add origin https://github.com/crestpointmarketing/daily_stock_analysis.git \
     && git -C /opt/daily_stock_analysis fetch --depth 1 origin be148f39ce3be8bc7f9c2d5b0ad77cd31655e78f \
@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 
 COPY integrations/dsa/requirements.txt /app/requirements.txt
 RUN pip install -r requirements.txt
+COPY integrations/prediction/requirements.txt /app/prediction-requirements.txt
+RUN pip install -r prediction-requirements.txt
 COPY integrations/dsa/*.py /app/integrations/dsa/
 COPY integrations/prediction/*.py /app/integrations/prediction/
 COPY integrations/prediction/LICENSE integrations/prediction/PROVENANCE.md integrations/prediction/SOURCE_MANIFEST.json /app/integrations/prediction/

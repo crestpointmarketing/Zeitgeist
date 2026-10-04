@@ -76,8 +76,82 @@ Boosting observations, consistent metrics and an explicit nullable target. The
 feature work is new Zeitgeist adaptation, not a claim that the original notebook
 used this feature set or evaluation. No new Python dependency or paid AI call is added.
 
+## Extended research catalog — 2026-10-04
+
+`fork-research-v1` adds an independently selected module beside the primary v3
+ensemble. It does not pick the best historical model automatically. The complete
+source inventory and exclusions are in `FORK-COVERAGE.md` and `FORK_COVERAGE.json`.
+
+### Sequence architectures
+
+All 18 numbered `deep-learning` notebook architecture routes are rewritten in
+`sequence_models.py` using CPU PyTorch. This is architectural reuse with substantial
+changes, not a line-for-line TensorFlow port or a reproduction of original scores.
+LSTM/GRU/RNN have plain, bidirectional and two-path variants. Two-path means separate
+20-session and 5-session encoders here. Encoder–decoder variants use five learned
+step embeddings and an LSTM/GRU decoder; variational versions use a Gaussian latent
+with KL weight 0.001, sampled in training and replaced by its mean for inference.
+The Transformer has one two-head encoder with sinusoidal positions. CNNs use only
+left padding (two dilation-1 layers, or dilations 1/2/4), followed by a GRU decoder.
+Bidirectional processing spans observed history only, never the future target.
+
+Each input contains 20 sessions of log-close changes, high-low range divided by
+close, and changes in log1p volume. Use up to 252 mature examples and five next-day
+log-return labels. Input and label scalers are fitted only to those examples.
+Settings fixed before evaluation: seed 42, width 12, 12 full-batch epochs, Adam
+learning rate 0.005, weight decay 0.001, gradient norm cap 1. The autoencoder route
+fits a 60–24–6–24–60 reconstruction network for 12 epochs (Adam 0.005, no decay),
+then a Ridge(alpha=10) head on the encoded training examples. Every historical
+origin starts fresh; no training checkpoint, future-fit scaler, test tuning or
+test-based early stopping is used. These small bounded fits are not comprehensive
+deep-learning training or proof that an architecture is competitive.
+
+### Classical and stacked models
+
+`stack_models.py` adapts AdaBoost (32 trees, depth 3, leaf 12, rate .03), Bagging
+(32 trees, depth 5, leaf 12), XGBoost (32 trees, depth 2, rate .03, lambda 10), and
+ARIMA(1,1,0), no trend, trailing 252 log closes. The first three use the same 32
+causal features as v3. Temporal stacking uses Extra Trees (16 trees, depth 4,
+leaf 12), XGBoost and Ridge(alpha=10), with a Ridge(alpha=1) meta-model. Three
+chronological out-of-fold blocks occupy the second half of the training examples;
+five overlapping target rows are purged at each fit boundary. The meta-model sees
+only those historical out-of-time predictions. All bases are then refitted using
+available mature labels. Seeds are 42; CPU jobs are limited to one.
+
+All 24 new prediction modules use the existing 30-window five-session evaluation
+and independent 5% improvement gate against both baselines. Scores and the final
+target arithmetic are recomputed/checked at both API and browser boundaries.
+Direct five-session estimators do not expose an invented daily forecast curve.
+Running many models increases selection bias: a marginal historical pass is not
+prospective validation or a calibrated probability. The primary ensemble is unchanged.
+
+### Paper strategies, risk and offline portfolio study
+
+Four historical long/cash simulations adapt the moving-average (5/20), turtle
+(20-session entry/10-session exit), evolution and Q-learning families. Evolution
+uses a seeded 20-generation, 20-population search on training data only; Q-learning
+is a deliberately small tabular six-state/two-action policy trained for 20 passes,
+not the original neural Q agent. Both policies freeze before the 150 test intervals.
+Signals use the prior close; executions use the next open; ten basis points per
+side apply to entries, exits and final liquidation. Buy-and-hold uses identical
+entry/exit costs. Full position, return, turnover and equity accounting is exported
+and independently recalculated in TypeScript. Adjusted bars, fractional shares,
+fixed costs and absence of market impact/taxes limit realism. No orders are sent.
+
+Risk diagnostics combine an EWMA volatility process (decay .94) with 2,000 seeded
+five-session paths and separate p10/p50/p90 quantiles, a training-only scaled
+OneClassSVM (nu .05), return z-scores and simple-average RSI14. All last-20-session
+outlier checks use earlier returns. These are uncalibrated scenarios and descriptive
+indicators, not actionable forecasts or measured confidence.
+
+`portfolio_research.py` is an offline CLI for 2–6 explicitly supplied snapshots:
+252 training returns, covariance shrunk 10% to its diagonal, long-only minimum
+variance weights capped at 60%, followed by an untouched 60-session test. Compare
+equal weights with the same daily rebalancing and ten-basis-point turnover costs,
+including entry and final liquidation. No account holdings or live portfolio UI.
+
 ## Runtime (all protocols)
 
-The bridge has a separate one-worker forecast lock, a 45-second subprocess deadline and a one-hour in-memory cache. The existing market budget governs authenticated `/api/forecast` calls, including cached requests. No paid AI call is made. CPU workers cannot receive browser-specified tree counts, horizons or filesystem paths. No SQL migration or model binary deserialization is needed. Model reports are not passed to the LLM as established facts.
+The bridge shares one worker lock between primary forecasts and new research, with a 45-second subprocess deadline and a one-hour in-memory cache keyed by ticker and module. The existing market budget governs authenticated `/api/forecast` and `/api/model-research` calls, including cached requests. No paid AI call is made. CPU workers cannot receive browser-specified tree counts, horizons or filesystem paths. No SQL migration or model binary deserialization is needed. Model reports are not passed to the LLM as established facts. Browser cancellation stops waiting; it does not promise to stop or refund work already running on the server.
 
-Install updated `integrations/dsa/requirements.txt` in the bridge virtual environment. No runtime clone of the second fork is needed: the adapted modules and retained license ship here. Run `python -m unittest discover -s integrations/prediction -p test_forecast.py` in that environment. Restart both services after changes.
+Install `integrations/dsa/requirements.txt` and `integrations/prediction/requirements.txt` in the bridge virtual environment. Research adds pinned CPU PyTorch, XGBoost and statsmodels; Linux uses `xgboost-cpu` and libgomp. No runtime clone of the third fork is needed: the adapted modules and retained license ship here. Run `python -m unittest discover -s integrations/prediction -p 'test_*.py'` in that environment. Restart both services after changes. Reproduction commands and measured results are in `RESEARCH-VERIFICATION.md`.

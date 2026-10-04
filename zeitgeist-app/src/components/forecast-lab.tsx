@@ -4,6 +4,7 @@ import { FlaskConical, LoaderCircle, Play, CheckCircle2, ShieldAlert } from 'luc
 import type { ForecastReport } from '@/lib/forecast-schema';
 import { ForecastComparison } from './forecast-comparison';
 import { requestForecast } from '@/lib/forecast-request';
+import { ResearchLab } from './research-lab';
 
 const dollars = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 const percent = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -37,7 +38,7 @@ export function ForecastResults({ report: r }: { report: ForecastReport }) {
 }
 
 export function ForecastLab({ ticker }: { ticker: string }) {
-  return <ForecastLabSession key={ticker} ticker={ticker}/>;
+  return <><ForecastLabSession key={ticker} ticker={ticker}/><ResearchLab ticker={ticker}/></>;
 }
 
 function ForecastLabSession({ ticker }: { ticker: string }) {

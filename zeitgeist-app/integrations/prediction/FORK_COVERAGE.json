@@ -1,0 +1,768 @@
+{
+  "repository": "https://github.com/crestpointmarketing/Stock-Prediction-Models",
+  "commit": "33266732b0b16188b565e0aeb6b24efa71161f6a",
+  "files": [
+    {
+      "path": "agent/1.turtle-agent.ipynb",
+      "sha256": "7aa9fdf14498efe8c1f4fd18dab8b6572cca3c420b9e8d13e355ca61f81e06ac",
+      "status": "strategy adapted",
+      "module": "paper_turtle",
+      "reason": "Close breakout, next-open execution, costs and terminal inventory accounting.",
+      "code_lines": 100,
+      "classes": []
+    },
+    {
+      "path": "agent/10.duel-q-learning-agent.ipynb",
+      "sha256": "908dd18933501ef507f8f551e335238a5834b6e01d730168f2d85e3f9c988b25",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 169,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/11.double-duel-q-learning-agent.ipynb",
+      "sha256": "f374014cd1ec58f1565ccabbc3cc507efc9e2dc5e64e4159f876638de9da5478",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 193,
+      "classes": [
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/12.duel-recurrent-q-learning-agent.ipynb",
+      "sha256": "4678c3b1eafa1a819c82aa7e1e525eab188a28575395d6a9e229d747ada36b43",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 191,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/13.double-duel-recurrent-q-learning-agent.ipynb",
+      "sha256": "3c70045e296cf6f0f1a11d1b2d68ae279c4e0702be90a4740592d1a451910151",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 224,
+      "classes": [
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/14.actor-critic-agent.ipynb",
+      "sha256": "0777c6119034d2123f382f5dc89264e150f8d059f1d31ef57ea0186b95efb47d",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 201,
+      "classes": [
+        "Actor",
+        "Critic",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/15.actor-critic-duel-agent.ipynb",
+      "sha256": "8fc7c9943bdedf8f92364f51d51fc28a251e0287e29c93b2781860dc5bc8184f",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 209,
+      "classes": [
+        "Actor",
+        "Critic",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/16.actor-critic-recurrent-agent.ipynb",
+      "sha256": "9a856445d5d9094d42add995379029605a4d470c8c75de8d17a7df2b312c26d5",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 243,
+      "classes": [
+        "Actor",
+        "Critic",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/17.actor-critic-duel-recurrent-agent.ipynb",
+      "sha256": "6b7b0a24d16390ff5f4b4ca20affcfff34369bf5a43425fc16cafaa48a6a089b",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 251,
+      "classes": [
+        "Actor",
+        "Critic",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/18.curiosity-q-learning-agent.ipynb",
+      "sha256": "3ac1467c60c196d59749f66d9b1464f2249d1607e4c595f342fd7bd5a6b13dcf",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 207,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/19.recurrent-curiosity-q-learning-agent.ipynb",
+      "sha256": "bb689acd6b93a26ac267b90ca5a09b75c0a2bfc0cab93437947dad6aadb39cc9",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 232,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/2.moving-average-agent.ipynb",
+      "sha256": "e8abe2716e95794ffde4ce50a0001365ab7f35088a2bd0c06ce2b4a0640e1cca",
+      "status": "strategy adapted",
+      "module": "paper_ma",
+      "reason": "Fixed 5/20 lookbacks; next-open execution and costs.",
+      "code_lines": 104,
+      "classes": []
+    },
+    {
+      "path": "agent/20.duel-curiosity-q-learning-agent.ipynb",
+      "sha256": "a387548610df420e236b1bd92815c6f490031549b70513090cfb34a99c964108",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 215,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/21.neuro-evolution-agent.ipynb",
+      "sha256": "04ee493e0031e40ce2fd5df548530f540de1f0f7eeb6ad1ac33447e15bcb3cf0",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 186,
+      "classes": [
+        "neuralnetwork",
+        "NeuroEvolution"
+      ]
+    },
+    {
+      "path": "agent/22.neuro-evolution-novelty-search-agent.ipynb",
+      "sha256": "35914aec902f77945d8e17624b1027f5a38acbbce3511d78e2ff7ed06673cf7e",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 237,
+      "classes": [
+        "neuralnetwork",
+        "NeuroEvolution"
+      ]
+    },
+    {
+      "path": "agent/23.abcd-strategy-agent.ipynb",
+      "sha256": "108e1a6d971204499b72f17a55e91796ad59a8a7beceb499d19ac5d82b3ab92a",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 123,
+      "classes": []
+    },
+    {
+      "path": "agent/3.signal-rolling-agent.ipynb",
+      "sha256": "48a13b493b312e57d47f4072d6cce7706154a321dc872dd243eb461b31ec05ab",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 113,
+      "classes": []
+    },
+    {
+      "path": "agent/4.policy-gradient-agent.ipynb",
+      "sha256": "b2f2c753fb9170c513c853a45424bf05a7bcb0e125c85285ff7f95a3ca479d56",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 139,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/5.q-learning-agent.ipynb",
+      "sha256": "a07771f32267efd23ff5b08e591a434712590e50cd474fbc65936297a1955745",
+      "status": "family adaptation",
+      "module": "paper_qlearning",
+      "reason": "Bounded tabular Q learning, not a reproduction of the original neural Q agent.",
+      "code_lines": 166,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/6.evolution-strategy-agent.ipynb",
+      "sha256": "2609453bcdfea65b542960590b6ea44ac4b4704be5d02a38156cee470aca7694",
+      "status": "family adaptation",
+      "module": "paper_evolution",
+      "reason": "Seeded training-only evolution search; frozen out-of-sample policy.",
+      "code_lines": 220,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/7.double-q-learning-agent.ipynb",
+      "sha256": "6fddfc9671a03fea311fcf2444850eb79fdad847bbf861c50f12c09c8294659b",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 190,
+      "classes": [
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/8.recurrent-q-learning-agent.ipynb",
+      "sha256": "41b8d99f5d6e7eb64f820d7e0dace397eaa0782b32f0cecc7ee72f83f394af00",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 188,
+      "classes": [
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/9.double-recurrent-q-learning-agent.ipynb",
+      "sha256": "037d199e1c0109dbcf1528c216fd1d37f41ca4734cb19144e3fcb0cd6c652f7a",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 221,
+      "classes": [
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "agent/updated-NES-google.ipynb",
+      "sha256": "a4c0664db91f1db482c114f7f3923e7c74f006456b92164285c4cdb38867b915",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 330,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "deep-learning/1.lstm.ipynb",
+      "sha256": "8ba7b8007f1f22dbf8c65bcdb698e6165de77d84b4d59bba6c470f6cca25d3ed",
+      "status": "architecture rewritten",
+      "module": "lstm",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 179,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/10.lstm-seq2seq.ipynb",
+      "sha256": "f41b5a9b91a90fb5f6b019eb96401a0aad62f340567aeb0284d3d1b9606f1ada",
+      "status": "architecture rewritten",
+      "module": "lstm_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 191,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/11.bidirectional-lstm-seq2seq.ipynb",
+      "sha256": "7b9bc3949b45ba4ef379cf183f60194e1f83f9cafef0bf46a29e978d277fd4e4",
+      "status": "architecture rewritten",
+      "module": "bidirectional_lstm_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 227,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/12.lstm-seq2seq-vae.ipynb",
+      "sha256": "d7d6c6e462a5ecd9bbda274111c4669e5d71455fd4505e22fc0829ba97f63a60",
+      "status": "architecture rewritten",
+      "module": "lstm_vae",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 205,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/13.gru-seq2seq.ipynb",
+      "sha256": "ecf697169f185a21b02be2ee44e5b67c53d492cc4ca9934ff5c2de78ac6eeb2a",
+      "status": "architecture rewritten",
+      "module": "gru_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 191,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/14.bidirectional-gru-seq2seq.ipynb",
+      "sha256": "9ada2344d1b128ae2f0d21c5991c4ccdfb28dc13440b27963b83fa0db3135ef6",
+      "status": "architecture rewritten",
+      "module": "bidirectional_gru_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 227,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/15.gru-seq2seq-vae.ipynb",
+      "sha256": "e929e49ce7e0abaafca5d70379e113638da26a57ebc7f1a1f430d091d8ab8385",
+      "status": "architecture rewritten",
+      "module": "gru_vae",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 205,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/16.attention-is-all-you-need.ipynb",
+      "sha256": "ef08ac79b2c21400ae67524551febfe8de54aeb0562a63d4a289e82c44eb7d94",
+      "status": "architecture rewritten",
+      "module": "transformer",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 249,
+      "classes": [
+        "Attention"
+      ]
+    },
+    {
+      "path": "deep-learning/17.cnn-seq2seq.ipynb",
+      "sha256": "59b693667b10ab743658b85ab7d1024f0613c34810e7ada618ce71076ebfb770",
+      "status": "architecture rewritten",
+      "module": "cnn_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 239,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/18.dilated-cnn-seq2seq.ipynb",
+      "sha256": "fba19bd1f4fb5190f3e69267e4cc3ed50218b9b8f59dccb10d469db5a135dd9d",
+      "status": "architecture rewritten",
+      "module": "dilated_cnn_seq2seq",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 224,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/2.bidirectional-lstm.ipynb",
+      "sha256": "304a936e6360a78dddba100505b98eb9ec0cc783bcd03fad162ea2a2f1600963",
+      "status": "architecture rewritten",
+      "module": "bidirectional_lstm",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 205,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/3.lstm-2path.ipynb",
+      "sha256": "a2e7f6910d7dc690fa486fd9a845bc4ba1ff24aec79a6b38e609be2eec589505",
+      "status": "architecture rewritten",
+      "module": "two_path_lstm",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 246,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/4.gru.ipynb",
+      "sha256": "74fbd289ec6a122c0616244035b7e8390dcc3d0f230b2c1a6da811d5b0d0c1aa",
+      "status": "architecture rewritten",
+      "module": "gru",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 179,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/5.bidirectional-gru.ipynb",
+      "sha256": "32b17873d07ce03f56ab29d0e80a9381f6ee4065b868cb65f5a97d9988cb9197",
+      "status": "architecture rewritten",
+      "module": "bidirectional_gru",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 205,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/6.gru-2path.ipynb",
+      "sha256": "b45fcc8398ea1cb82f94ff52b39367cc38122e04ac08bcaffaa065d00f6d1a96",
+      "status": "architecture rewritten",
+      "module": "two_path_gru",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 246,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/7.vanilla.ipynb",
+      "sha256": "4fa83eccd76eda7318ad0f41daed3fd270c73aa5d7c1daaf1bd016542ef0f58d",
+      "status": "architecture rewritten",
+      "module": "rnn",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 179,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/8.bidirectional-vanilla.ipynb",
+      "sha256": "b41ebf024c95bd7bcd990f6c60f697973a5ed35e7f45a3096dacc5752e14cdf5",
+      "status": "architecture rewritten",
+      "module": "bidirectional_rnn",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 205,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/9.vanilla-2path.ipynb",
+      "sha256": "fd7fa93735c79267935d6bcdf8f94d2b5c43fabd86f648a89664248336495079",
+      "status": "architecture rewritten",
+      "module": "two_path_rnn",
+      "reason": "Modern bounded PyTorch adaptation; not identical code or upstream accuracy.",
+      "code_lines": 246,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/access.py",
+      "sha256": "46c045fe9a51bf86f36fdaa35adec8052bccc1e3f211002378213e69137ec173",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 318,
+      "classes": [
+        "MemoryAccess"
+      ]
+    },
+    {
+      "path": "deep-learning/addressing.py",
+      "sha256": "8a8e59eefca2bd573ff21ec24b04db96306e4178749e470e4db81335ed4b5aa6",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 410,
+      "classes": [
+        "CosineWeights",
+        "TemporalLinkage",
+        "Freeness"
+      ]
+    },
+    {
+      "path": "deep-learning/autoencoder.py",
+      "sha256": "aae426a7d57b3cac3f99c3f57d458a372c789303f97ee4858e5b3c38e813c482",
+      "status": "architecture rewritten",
+      "module": "autoencoder",
+      "reason": "Train-only reconstruction bottleneck and Ridge head.",
+      "code_lines": 41,
+      "classes": []
+    },
+    {
+      "path": "deep-learning/dnc.py",
+      "sha256": "ac3f14f65b1a7c932b93b5a82c3406e8caaaeed72b3de25879e20d9bffb4e824",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 142,
+      "classes": [
+        "DNC"
+      ]
+    },
+    {
+      "path": "deep-learning/how-to-forecast.ipynb",
+      "sha256": "79facc607a1a08153fd73e5c4980ff62458d8077e0757cda03a8657a02a92aea",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 192,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/sentiment-consensus.ipynb",
+      "sha256": "91f8472186d9ae263681e96b2a804a4a8caced07988975cee1ccdd2b0b33e124",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 296,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "deep-learning/util.py",
+      "sha256": "950608bd98c30010780d0b7c917c1260d236a94c059e545922d4a2d995f90aef",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 45,
+      "classes": []
+    },
+    {
+      "path": "free-agent/evolution-strategy-agent.ipynb",
+      "sha256": "224f7ad289a0a13f1bac16d6f0e15a8f3d37e42be60eee04c28a36499ef84f7a",
+      "status": "family adaptation",
+      "module": "paper_evolution",
+      "reason": "Seeded training-only evolution search; frozen out-of-sample policy.",
+      "code_lines": 246,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "free-agent/evolution-strategy-bayesian-agent.ipynb",
+      "sha256": "375cb0351cf18cb7eb5fc1998f49d99d13d35f113989640d1b0227a0e8194ef8",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 352,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "misc/bitcoin-analysis-lstm.ipynb",
+      "sha256": "2b8b438c92a336473729597f730282556380ae2597ee7ef85ceb1e5710feaa99",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 392,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "misc/fashion-forecasting.ipynb",
+      "sha256": "fd899bbfe7493bece5dff61a3194a778940a145e986beeba04c1da8053a3bc35",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 135,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "misc/kijang-emas-bank-negara.ipynb",
+      "sha256": "e89c04387b5411078ceda7006435482c567afe2011d9b46b7ec538ec0dc36d08",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 397,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "misc/outliers.ipynb",
+      "sha256": "e86ca627b5c2f28d02cfbd19a36eafe86975f460366ce18dd25a7db7c46c24f8",
+      "status": "partially adapted",
+      "module": "risk_diagnostics",
+      "reason": "Causal SVM, z-scores and simple RSI; no future-fit detector or automatic trading signal.",
+      "code_lines": 243,
+      "classes": []
+    },
+    {
+      "path": "misc/overbought-oversold.ipynb",
+      "sha256": "4d44c3cdb9129e5e4d6a00b9eea1f8f97b37e8d9090f02cea1685742edd943a4",
+      "status": "partially adapted",
+      "module": "risk_diagnostics",
+      "reason": "Causal SVM, z-scores and simple RSI; no future-fit detector or automatic trading signal.",
+      "code_lines": 148,
+      "classes": []
+    },
+    {
+      "path": "misc/tesla-study.ipynb",
+      "sha256": "04be0de7ca38eea2dc0b379365fa50e2d50b3a33aae4e1ee706137c41c0dcb54",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 145,
+      "classes": []
+    },
+    {
+      "path": "misc/which-stock.ipynb",
+      "sha256": "19b921c80d7ebb9946ec177abe6876ae96b5f3536e53a0daccdf9378613f11c0",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 30,
+      "classes": []
+    },
+    {
+      "path": "realtime-agent/app.py",
+      "sha256": "c5009d0462eb782b602a788c9df52c8dd9c9a264332f29b0dc46f16565b8d308",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 393,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "realtime-agent/realtime-evolution-strategy.ipynb",
+      "sha256": "42e2da3f2606ac37904e68c8acc3447f33f098d9baba2190cc80396f44cef471",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 429,
+      "classes": [
+        "Deep_Evolution_Strategy",
+        "Model",
+        "Agent"
+      ]
+    },
+    {
+      "path": "realtime-agent/request.ipynb",
+      "sha256": "7d5f72ae7907b01dd3c9dda45db72dd3b7e2fddfd647f60a3d2a5b52ba91a2a7",
+      "status": "not migrated",
+      "module": null,
+      "reason": "Other RL/novelty/Bayesian variants need a separate validated environment; live broker/server behavior is excluded. Inventoried as research references.",
+      "code_lines": 16,
+      "classes": []
+    },
+    {
+      "path": "simulation/monte-carlo-drift.ipynb",
+      "sha256": "d5f5dd836becc047362c0adc1fb674c1fc5d1ff3b76618cf1d1f29366ea189fb",
+      "status": "simulation adapted",
+      "module": "primary simulation",
+      "reason": "Empirical log-return drift with horizon-specific quantiles.",
+      "code_lines": 55,
+      "classes": []
+    },
+    {
+      "path": "simulation/monte-carlo-dynamic-volatility.ipynb",
+      "sha256": "82f4fcbf6714c452392fd6d971f097ee46a26861570da8d1fb942b8812a1b6fa",
+      "status": "simulation adapted",
+      "module": "risk_diagnostics",
+      "reason": "Conditional EWMA volatility, seeded paths; uncalibrated scenarios.",
+      "code_lines": 46,
+      "classes": []
+    },
+    {
+      "path": "simulation/monte-carlo-simple.ipynb",
+      "sha256": "70b3b6eabb8a1fff81e7f245dd52e6849a08f51908e670bc1d7cc6684b8e3fe1",
+      "status": "simulation adapted",
+      "module": "primary simulation",
+      "reason": "Empirical log-return drift with horizon-specific quantiles.",
+      "code_lines": 46,
+      "classes": []
+    },
+    {
+      "path": "simulation/multivariate-drift-monte-carlo.ipynb",
+      "sha256": "763f835188221cd816b01ea46f2bd3b8609339a98112f9bd2e281b3c829d7b7c",
+      "status": "reference only",
+      "module": null,
+      "reason": "Dataset-specific study, supporting legacy code, sentiment-dependent or non-stock demo; no verified matching live inputs. Not represented as an implemented model.",
+      "code_lines": 160,
+      "classes": []
+    },
+    {
+      "path": "simulation/portfolio-optimization.ipynb",
+      "sha256": "a00bdc35ac6be15512d3f87dbaa889741a7400d341713a9853c1a1c2e5011ced",
+      "status": "offline adaptation",
+      "module": "portfolio_research.py",
+      "reason": "Train-only covariance, capped long-only weights, costs and 60-session untouched test. No online multi-symbol UI.",
+      "code_lines": 34,
+      "classes": []
+    },
+    {
+      "path": "stacking/autoencoder.py",
+      "sha256": "aae426a7d57b3cac3f99c3f57d458a372c789303f97ee4858e5b3c38e813c482",
+      "status": "architecture rewritten",
+      "module": "autoencoder",
+      "reason": "Train-only reconstruction bottleneck and Ridge head.",
+      "code_lines": 41,
+      "classes": []
+    },
+    {
+      "path": "stacking/model.py",
+      "sha256": "5f8b50bdde5a3d7397b47afb3d720e8313dedd919e7db8d94473d99ccae2bb2a",
+      "status": "partially adapted",
+      "module": "temporal_stack / classical catalog",
+      "reason": "RF/ET/GB/AdaBoost/Bagging/XGBoost/ARIMA available; original combined full-data encoder pipeline replaced with purged temporal stacking.",
+      "code_lines": 19,
+      "classes": [
+        "Model"
+      ]
+    },
+    {
+      "path": "stacking/stack-encoder-ensemble-xgb.ipynb",
+      "sha256": "6e03f9f7b12b6f62412a8c32e834adcb52feaf7dfd4753d8226c1b2bfb512e6e",
+      "status": "partially adapted",
+      "module": "temporal_stack / classical catalog",
+      "reason": "RF/ET/GB/AdaBoost/Bagging/XGBoost/ARIMA available; original combined full-data encoder pipeline replaced with purged temporal stacking.",
+      "code_lines": 167,
+      "classes": [
+        "encoder"
+      ]
+    },
+    {
+      "path": "stacking/stack-rnn-arima-xgb.ipynb",
+      "sha256": "bbc6d026d86f7ec3ebaf46b81342beb3e0b49e9bc2d45cc619aef423ade498c5",
+      "status": "partially adapted",
+      "module": "temporal_stack / classical catalog",
+      "reason": "RF/ET/GB/AdaBoost/Bagging/XGBoost/ARIMA available; original combined full-data encoder pipeline replaced with purged temporal stacking.",
+      "code_lines": 135,
+      "classes": []
+    }
+  ]
+}

@@ -46,19 +46,31 @@ def forecast(ticker: str, authorization: str = Header('')):
     return run_request(ticker, 1100, authorization, 'forecast')
 
 
-def run_request(ticker, days, authorization, kind):
+@app.get('/v1/research/{ticker}')
+def research(ticker: str, model: str = Query(..., pattern='^[a-z_]{3,40}$'), authorization: str = Header('')):
+    return run_request(ticker, 1100, authorization, 'research', model)
+
+
+def run_request(ticker, days, authorization, kind, model=None):
     if not hmac.compare_digest(authorization, 'Bearer ' + TOKEN):
         raise HTTPException(401, 'Unauthorized')
     if not ticker.isascii() or not ticker.isalpha() or not 1 <= len(ticker) <= 5 or ticker != ticker.upper():
         raise HTTPException(400, 'Invalid US symbol')
-    key = (kind, ticker, days)
+    if kind == 'research':
+        # Registry has no neural runtime import; reject arbitrary worker arguments.
+        prediction_path = str(Path(__file__).resolve().parent.parent / 'prediction')
+        if prediction_path not in sys.path:
+            sys.path.insert(0, prediction_path)
+        from research_engine import MODEL_IDS
+        if model not in MODEL_IDS: raise HTTPException(400, 'Unsupported research model')
+    key = (kind, ticker, days) + ((model,) if kind == 'research' else ())
     # A warm result requires no worker. Other symbols must not block cache hits.
     with cache_lock:
         cached = cache.get(key)
     if cached and cached[0] > time.monotonic():
         return cached[1]
     # Bound upstream concurrency; avoid unbounded work after client timeouts.
-    worker_lock = {'history': lock, 'financials': financials_lock, 'forecast': forecast_lock}[kind]
+    worker_lock = {'history': lock, 'financials': financials_lock, 'forecast': forecast_lock, 'research': forecast_lock}[kind]
     if not worker_lock.acquire(timeout=2):
         raise HTTPException(429, 'Market data worker is busy')
     try:
@@ -68,9 +80,11 @@ def run_request(ticker, days, authorization, kind):
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            script = {'history': 'worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py'}[kind]
-            result = subprocess.run([sys.executable, str(Path(__file__).with_name(script)), str(REPO), ticker, str(days)],
-                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'financials': 10, 'forecast': 45}[kind], cwd=REPO)
+            script = {'history': 'worker.py', 'financials': 'financials_worker.py', 'forecast': 'forecast_worker.py', 'research': 'research_worker.py'}[kind]
+            command = [sys.executable, str(Path(__file__).with_name(script)), str(REPO), ticker, str(days)]
+            if kind == 'research': command.append(model)
+            result = subprocess.run(command,
+                                    capture_output=True, text=True, encoding='utf-8', timeout={'history': 25, 'financials': 10, 'forecast': 45, 'research': 45}[kind], cwd=REPO)
             if result.returncode:
                 raise HTTPException(502, 'Upstream market data unavailable')
             payload = json.loads(result.stdout)

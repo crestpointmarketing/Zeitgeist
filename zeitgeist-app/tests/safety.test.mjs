@@ -751,6 +751,67 @@ function forecastFixture(qualified = true) {
 const forecasts = load('src/lib/forecast-schema.ts');
 const forecastNow = Date.parse('2026-10-03T13:00:00Z');
 
+function researchFixture(qualified=true) {
+  const f=forecastFixture(qualified);
+  return {...f, version:'fork-research-v1',model:'lstm',kind:'prediction',strategy:null,risk:null,
+    prediction:{qualified,forecast:f.forecast?{...f.forecast,date:f.target_date}:null,model:f.backtest.model,flat:f.backtest.flat,drift:f.backtest.drift,
+      windows:f.backtest.windows.map(w=>({...w,predicted_return_pct:w.model_return_pct}))}};
+}
+const research=load('src/lib/research-schema.ts');
+test('research validates model identity, every observation, target gate and prices',()=>{
+  const valid=researchFixture();assert.equal(research.parseResearch(valid,'AAPL','lstm',forecastNow).model,'lstm');
+  assert.throws(()=>research.parseResearch(valid,'AAPL','gru',forecastNow));
+  for(const mutate of [r=>{r.prediction.model.mae_pp=9;},r=>{r.prediction.forecast.price=999;},r=>{r.prediction.windows[0].training_labels_through='2026-10-02';},r=>{r.kind='strategy';},r=>{r.prediction.forecast=null;}]){
+    const bad=structuredClone(valid);mutate(bad);assert.throws(()=>research.parseResearch(bad,'AAPL','lstm',forecastNow));
+  }
+  assert.equal(research.parseResearch(researchFixture(false),'AAPL','lstm',forecastNow).prediction.forecast,null);
+});
+
+test('research paper accounting rejects impossible execution and fabricated equity',()=>{
+  const f=researchFixture();const day=i=>new Date(Date.parse('2026-10-02')-(149-i)*86400000).toISOString().slice(0,10);
+  const observations=Array.from({length:150},(_,i)=>({signal_date:day(i-2),execution_date:day(i-1),date:day(i),position:0,market_return_pct:0,net_return_pct:0,benchmark_return_pct:i===0||i===149?-.1:0,turnover:0,equity:1,benchmark_equity:i===149?.999**2:.999}));
+  const r={...f,model:'paper_ma',kind:'strategy',prediction:null,strategy:{training_through:observations[0].signal_date,cost_bps_per_side:10,return_pct:0,benchmark_return_pct:(.999**2-1)*100,max_drawdown_pct:0,benchmark_drawdown_pct:(1-.999**2)*100,turnover:0,observations}};
+  assert.equal(research.parseResearch(r,'AAPL','paper_ma',forecastNow).strategy.return_pct,0);
+  for(const mutate of [v=>{v.strategy.observations[0].equity=2;},v=>{v.strategy.observations[0].signal_date=v.strategy.observations[0].date;},v=>{v.strategy.return_pct=25;}]){const bad=structuredClone(r);mutate(bad);assert.throws(()=>research.parseResearch(bad,'AAPL','paper_ma',forecastNow));}
+});
+
+test('research catalog rejects inherited properties and unsupported module IDs',()=>{
+  const c=load('src/lib/research-catalog.ts');assert.equal(Object.keys(c.RESEARCH_MODELS).length,29);
+  for(const v of ['constructor','__proto__','toString','../../worker',null,123])assert.equal(c.isResearchModel(v),false);
+});
+
+test('research request cancellation and malformed responses remain actionable',async()=>{
+  const api=load('src/lib/research-request.ts');const controller=new AbortController();
+  const stalled=(_,{signal})=>new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
+  const p=api.requestResearch('AAPL','lstm',controller.signal,stalled);controller.abort();await assert.rejects(p,{name:'AbortError'});
+  await assert.rejects(api.requestResearch('AAPL','lstm',new AbortController().signal,async()=>new Response('<html>Gateway</html>',{status:502})),/unreadable/);
+});
+
+test('research API authorizes and validates before consuming budget',async()=>{
+  const guards=access(null);let calls=0;
+  const mocks={'@/lib/api-access':{...guards,reserveUsage:async()=>{calls++;}},'@/lib/research-provider':{getResearch:async()=>{calls++;}}};
+  const denied=load('src/app/api/model-research/route.ts',mocks);
+  assert.equal((await denied.POST(new Request('http://local',{method:'POST',body:'{"ticker":"AAPL","model":"lstm"}'}))).status,503);assert.equal(calls,0);
+  const route=load('src/app/api/model-research/route.ts',{...mocks,'@/lib/api-access':{...mocks['@/lib/api-access'],requireAccount:async()=>({supabase:{}})}});
+  for(const model of ['__proto__','unknown',null])assert.equal((await route.POST(new Request('http://local',{method:'POST',body:JSON.stringify({ticker:'AAPL',model})}))).status,400);
+  assert.equal(calls,0);
+});
+
+test('research releases usage lease and does not expose provider internals',async()=>{
+  const guards=access(null);let released=0;
+  const route=load('src/app/api/model-research/route.ts',{'@/lib/api-access':{...guards,requireAccount:async()=>({supabase:{}}),reserveUsage:async(_,feature)=>{assert.equal(feature,'stock');return async()=>{released++;};}},'@/lib/research-provider':{getResearch:async()=>{throw Error('private worker detail');}}});
+  const response=await route.POST(new Request('http://local',{method:'POST',body:'{"ticker":"AAPL","model":"lstm"}'}));
+  assert.equal(response.status,500);assert.equal(released,1);assert.doesNotMatch(await response.text(),/private worker detail/);
+});
+
+test('research service transport rejects insecure origins and refuses redirects',async()=>{
+  let calls=0;const base={'server-only':{},'@/lib/supabase/server':{createClient:async()=>null}};
+  const unsafe=load('src/lib/research-provider.ts',{...base,__env:{DSA_BASE_URL:'http://remote.example',DSA_SERVICE_TOKEN:'secret'},__fetch:async()=>{calls++;}});
+  await assert.rejects(unsafe.getResearch('AAPL','lstm'),/secure/);assert.equal(calls,0);
+  const safe=load('src/lib/research-provider.ts',{...base,__env:{DSA_BASE_URL:'https://internal.example',DSA_SERVICE_TOKEN:'secret'},__fetch:async(url,options)=>{assert.equal(url.searchParams.get('model'),'lstm');assert.equal(options.redirect,'error');return new Response('',{status:429});}});
+  await assert.rejects(safe.getResearch('AAPL','lstm'),/running/);
+});
+
 test('forecast requests bound waiting and preserve explicit cancellation', async () => {
   const deadline = new AbortController();
   const api = load('src/lib/forecast-request.ts', { __AbortSignal: {

@@ -2,6 +2,20 @@
 
 更新时间：2026-10-04（America/Chicago）。本文是下一次打开项目时的首要入口。
 
+### 当前增量：第三个 fork 的扩展研究实验室
+
+开发分支 `codex/full-prediction-lab`，基于已上线的 `v2026.10.04-navigation`（`1135862`）。本轮发布标签预定为 `v2026.10.04-research-lab`；须以远程标签和 Vercel source commit 核对发布状态，不能把开发完成等同于上线完成。
+
+- 正式入口：选定股票 → More → Model lab → Sequence models & research tools。新增 29 个按需模块：18 种序列网络架构、Autoencoder + Ridge、5 种传统/堆叠模型、4 种纸面策略、1 种风险诊断。原 v3 主模型及其门槛保留。
+- 18 个编号深度学习 notebook 已按架构改写为现代 CPU PyTorch；不是逐行复刻，也未沿用旧准确率宣传。24 个预测模块逐个通过 30 个历史窗口及原 5% 双基线门槛，合格才出现五交易日目标。不会自动选择历史赢家。
+- 策略使用前收盘信号、次日开盘执行、每侧 10bp 费用及最终清仓，提供完整费用/收益/仓位记录。学习策略测试期冻结。无券商连接或真实下单。风险分位数为未校准情景。
+- 新增离线 `portfolio_research.py` CLI：2–6 个显式历史快照、252 日训练、60 日留出测试、持仓上限和换仓费用；尚无线上组合界面。
+- 全源清单覆盖 70 个 Python/notebook 文件；仍有 24 个代理变体未迁移、12 个文件仅作参考。不要说“原库所有程序均已上线”。精确映射见 `zeitgeist-app/integrations/prediction/FORK-COVERAGE.md` / `FORK_COVERAGE.json`。
+- 新链路：`research-lab.tsx` → 认证 `/api/model-research` → 私有 bridge `/v1/research/{ticker}?model=...` → `research_worker.py` → `research_engine.py`。模型白名单、原行情额度、共享单 CPU worker 锁、45 秒进程期限、按股票/模型一小时缓存；客户端 55 秒期限、取消等待、真实计时、保留上次结果、JSON 导出及逐窗口键盘核对。取消等待不承诺取消服务端工作或退回额度。
+- 新依赖：CPU PyTorch 2.14.1、XGBoost 3.4.1、statsmodels 0.15.0，见 `integrations/prediction/requirements.txt`。Linux 使用 xgboost-cpu 和 libgomp，Dockerfile 已更新。无数据库迁移，无新密钥。
+- 本地验证：92 Node + 10 DSA + 10 原预测 + 9 新研究测试，共 121 项；lint、TypeScript、生产构建。真实快照 54/54 次运行及 54 次 TypeScript 结果校验通过，另六股票离线组合测试完成。浏览器验证预测/策略/风险、取消重试、键盘时间滑块、390/320px 无横向溢出。
+- AAPL 双向 GRU 仅以微小优势通过本次历史门槛，其余 AAPL 候选及五只股票所测预测候选均未通过。不能把此结果作为未来准确率或盈利保证。协议和完整结果：`PROVENANCE.md`、`RESEARCH-VERIFICATION.md`。
+
 ### 侧边栏导航可靠性（2026-10-04）
 
 用户报告侧边栏点击无反应；在可访问的正式站浏览器中未稳定复现遮挡，AI CFO 能打开，不能据此认定用户环境已无问题。为降低对前端路由缓存及当前页面状态的依赖，WorkspaceShell 的 Explore / AI CFO / Watchlist、Data coverage、About 及手机菜单使用原生链接整页导航；登录权限检查保留。代价是切换工作区会重新加载页面。以后不要未经验证将这些关键入口改回客户端路由。
@@ -34,7 +48,7 @@
 - 前一个已部署且回归通过的功能基线：`6f741024bb2c8d232ade5eb8bd13b70b6e7310c0`。
 - 仓库：`https://github.com/crestpointmarketing/Zeitgeist`。
 - 生产站点：`https://zeitgeiststocks.com`。
-- 本地工作分支：`codex/prediction-lab`；生产部署跟踪远程 `main`。
+- 本地最新工作分支：`codex/full-prediction-lab`；生产部署跟踪远程 `main`。本节 stable 标签是历史恢复点，最新增量见本文开头。
 - Vercel：team `crestpointmarketings-projects`，project `zeitgeist`。
 - 标签是恢复源码的依据，不是数据库、密钥或上游服务状态的快照。不要移动或覆盖此标签；后续修改使用新分支、新提交和新标签。
 - 当前已验证范围无已知阻断问题。未验证项及外部限制见第 9 节；不能解释为绝对零缺陷。
@@ -51,7 +65,7 @@
 建议新任务从固定版创建分支：
 
 ```powershell
-git switch -c codex/next-change v2026.10.04-stable
+git switch -c codex/next-change origin/main
 ```
 
 若工作区有改动，先审查并保存，不能直接照抄切换/回退命令。
@@ -118,7 +132,7 @@ Next.js 15 / React 19 / TypeScript / Tailwind；Supabase Auth + Postgres；Anthr
 
 已完成到“上线可运行的实验模型 + 真实数据 + 回测 + 质量门槛 + UI”阶段，尚不是经过充分验证的预测产品。最近 AAPL 实测成功返回 30 个回测窗口，但未达到发布预测的门槛，因此没有树模型预测值；这不是 API 失败。
 
-未完成/未承诺：原仓库全部模型移植、TensorFlow/深度学习训练管线、广泛股票与市场阶段验证、实盘或含成本/滑点的收益验证、预测区间校准。Monte Carlo 情景不代表已验证的置信区间。不要将当前阶段描述成“全部原模型完成”或“稳定准确预测股价”。
+最新增量已加入有界 CPU 序列网络训练及含固定费用的纸面策略回测，详见本文开头。仍未完成/未承诺：原仓库全部代理变体移植、广泛股票与市场阶段验证、实盘执行验证、真实市场冲击/税费建模、预测区间校准。Monte Carlo 情景不代表已验证的置信区间。不要将当前阶段描述成“全部原模型完成”或“稳定准确预测股价”。
 
 ## 5. 关键代码地图
 
