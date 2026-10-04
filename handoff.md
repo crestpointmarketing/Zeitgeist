@@ -89,6 +89,12 @@ Next.js 15 / React 19 / TypeScript / Tailwind；Supabase Auth + Postgres；Anthr
 - 只有 MAE 严格低于两个基线各自 MAE 的 95% 才发布树模型预测。未达标显示 Model not yet validated，并保留回测结果，属于正常行为。
 - 许可、来源和精确协议：`zeitgeist-app/integrations/prediction/PROVENANCE.md`、`LICENSE`、`SOURCE_MANIFEST.json`。DSA MIT 许可保留于容器的上游 checkout。
 
+#### 模型开发成熟度（2026-10-04）
+
+已完成到“上线可运行的实验模型 + 真实数据 + 回测 + 质量门槛 + UI”阶段，尚不是经过充分验证的预测产品。最近 AAPL 实测成功返回 30 个回测窗口，但未达到发布预测的门槛，因此没有树模型预测值；这不是 API 失败。
+
+未完成/未承诺：原仓库全部模型移植、TensorFlow/深度学习训练管线、广泛股票与市场阶段验证、实盘或含成本/滑点的收益验证、预测区间校准。Monte Carlo 情景不代表已验证的置信区间。不要将当前阶段描述成“全部原模型完成”或“稳定准确预测股价”。
+
 ## 5. 关键代码地图
 
 以下路径相对于 `zeitgeist-app/`：
