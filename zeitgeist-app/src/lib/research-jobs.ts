@@ -12,6 +12,7 @@ export type ResearchJob={id:string;kind:JobInput['kind'];input:JobInput & {sched
 export const JOB_COLUMNS='id,kind,input,status,stage,result,error,attempts,created_at,started_at,finished_at,read_at,duration_ms';
 
 export function progressLabel(job:ResearchJob){
+ if(job.status==='queued')return 'Queued';
  if(job.status==='succeeded')return 'Ready';
  if(job.status==='failed')return 'Needs attention';
  if(job.status==='cancelled')return 'Cancelled';
