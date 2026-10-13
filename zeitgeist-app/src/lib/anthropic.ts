@@ -5,6 +5,7 @@ import type { FinancialEvidence } from './financial-evidence';
 import type { NewsEvidence } from './news-evidence';
 import { sessionDate } from './quote';
 import Anthropic from '@anthropic-ai/sdk';
+import { aiServiceError, AIServiceError } from './ai-service-error';
 import { 
   StockData, 
   CompanyDetails, 
@@ -158,7 +159,7 @@ export async function analyzeStockData(
   try {
     // Initialize Anthropic client
     if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required');
+      throw new AIServiceError('provider_not_configured', 'AI service is not configured. The site administrator needs to configure the AI API key. Stock prices remain available.');
     }
     
     const anthropic = new Anthropic({
@@ -188,7 +189,7 @@ export async function analyzeStockData(
       ]
     });
 
-    if (completion.stop_reason === 'max_tokens') throw new Error('AI analysis exceeded its output limit; retry for a complete result');
+    if (completion.stop_reason === 'max_tokens') throw new AIServiceError('output_limit', 'AI analysis exceeded its output limit; retry for a complete result.', 502);
     const responseContent = completion.content.find(block => block.type === 'text');
     
     if (!responseContent || responseContent.type !== 'text') {
@@ -226,35 +227,9 @@ export async function analyzeStockData(
     return analysis;
     
   } catch (error) {
-    console.error('Error in Anthropic stock analysis:', error);
-    
-    // Handle specific Anthropic API errors with detailed logging
-    let errorMessage = 'Unknown error occurred during analysis';
-    
-    if (error instanceof Error) {
-      console.log(`Anthropic API Error Details: ${error.message}`);
-      
-      if (error.message.includes('401') || error.message.includes('Invalid API key')) {
-        errorMessage = 'Invalid Anthropic API key - please check your API key configuration';
-      } else if (error.message.includes('403')) {
-        errorMessage = 'Anthropic API access forbidden - check your subscription and permissions';
-      } else if (error.message.includes('429') || error.message.includes('rate limit')) {
-        errorMessage = 'Anthropic API rate limit exceeded - please try again in a few moments';
-      } else if (error.message.includes('quota') || error.message.includes('billing')) {
-        errorMessage = 'Anthropic API quota exceeded - check your billing and usage limits';
-      } else if (error.message.includes('timeout')) {
-        errorMessage = 'Anthropic API request timed out - please try again';
-      } else if (error.message.includes('model') || error.message.includes('does not exist')) {
-        errorMessage = `Anthropic model "${MODEL}" not available - please update model configuration`;
-      } else if (error.message.includes('Invalid JSON')) {
-        errorMessage = 'Anthropic returned invalid response format - retrying may help';
-      } else {
-        errorMessage = `Anthropic API error: ${error.message}`;
-      }
-    }
-    
-    console.warn(`Analysis unavailable: ${errorMessage}`);
-    throw new Error(errorMessage);
+    const failure = aiServiceError(error);
+    console.warn('Analysis unavailable:', failure.code);
+    throw failure;
   }
 }
 

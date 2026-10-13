@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useId } from 'react';
 import { Search, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { validateStockTicker } from '@/lib/stock-utils';
 
-// Popular stock symbols for auto-complete suggestions
-import { POPULAR_STOCKS, resolveStockQuery } from '@/lib/stock-search';
+import { POPULAR_STOCKS, resolveStockQuery, searchStocks, type StockSuggestion } from '@/lib/stock-search';
 
 interface StockInputProps {
   onSearch: (ticker: string) => void;
@@ -17,12 +16,6 @@ interface StockInputProps {
   showSuggestions?: boolean;
   autoFocus?: boolean;
   selectedTicker?: string;
-}
-
-interface ValidationState {
-  isValid: boolean;
-  error?: string;
-  formattedValue: string;
 }
 
 export function StockInput({
@@ -36,65 +29,68 @@ export function StockInput({
   selectedTicker = ""
 }: StockInputProps) {
   const [inputValue, setInputValue] = useState('');
-  const [validation, setValidation] = useState<ValidationState>({
-    isValid: false,
-    error: '',
-    formattedValue: ''
-  });
+  const [error, setError] = useState('');
+  const [matches, setMatches] = useState<{ query: string; stocks: StockSuggestion[]; limited: boolean } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  // Derive suggestions from the displayed value, including values selected by mouse/keyboard.
   const query = inputValue.trim().toLowerCase();
-  const filteredSuggestions = POPULAR_STOCKS.filter(stock =>
-    !query || stock.symbol.toLowerCase().includes(query) || stock.name.toLowerCase().includes(query)
-  );
+  const searching = Boolean(query && showSuggestions && showDropdown && matches?.query !== query);
+  const filteredSuggestions = matches?.query === query ? matches.stocks : searchStocks(POPULAR_STOCKS, query, query ? 12 : 6);
+  const validation = validateStockTicker(resolveStockQuery(inputValue, filteredSuggestions));
+  const listId = useId();
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Validate input value
-  const validateInput = useCallback((value: string) => {
-    if (!value.trim()) {
-      return {
-        isValid: false,
-        error: '',
-        formattedValue: ''
-      };
-    }
-
-    const result = validateStockTicker(resolveStockQuery(value));
-    return {
-      isValid: result.isValid,
-      error: result.error,
-      formattedValue: result.formattedTicker
-    };
-  }, []);
-
   useEffect(() => {
     setInputValue(selectedTicker);
-    setValidation(validateInput(selectedTicker));
-  }, [selectedTicker, validateInput]);
+    setError('');
+  }, [selectedTicker]);
+
+  useEffect(() => {
+    if (!query || !showSuggestions || !showDropdown) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/stock-search?q=' + encodeURIComponent(query), {
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+        });
+        if (!response.ok) throw new Error('Search unavailable');
+        const data = await response.json();
+        if (!Array.isArray(data.results) || !data.results.every((stock: StockSuggestion) =>
+          stock && typeof stock.symbol === 'string' && /^[A-Z]{1,5}$/.test(stock.symbol) && typeof stock.name === 'string')) throw new Error('Invalid search results');
+        if (!controller.signal.aborted) {
+          setMatches({ query, stocks: data.results.slice(0, 12), limited: data.limited === true });
+          setHighlightedIndex(-1);
+        }
+      } catch {
+        if (!controller.signal.aborted) setMatches({ query, stocks: searchStocks(POPULAR_STOCKS, query), limited: true });
+      }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [query, showSuggestions, showDropdown]);
 
   // Handle input change
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInputValue(value);
     
-    // Validate the input
-    const validationResult = validateInput(value);
-    setValidation(validationResult);
-
+    setError('');
     setShowDropdown(showSuggestions);
     setHighlightedIndex(-1);
-  }, [validateInput, showSuggestions]);
+  }, [showSuggestions]);
 
   // Handle search submission
   const handleSearch = useCallback(() => {
     if (validation.isValid && !isLoading && !disabled) {
-      onSearch(validation.formattedValue);
+      onSearch(validation.formattedTicker);
       setShowDropdown(false);
+      setError('');
+    } else if (query && !isLoading && !disabled) {
+      setError(searching ? 'Searching company names… Select a result when it appears.'
+        : 'Choose a matching company or enter a US ticker with 1–5 letters. Other markets and symbols with punctuation are not supported yet.');
     }
-  }, [validation, isLoading, disabled, onSearch]);
+  }, [validation, isLoading, disabled, onSearch, query, searching]);
 
   // Handle Enter key press
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -106,7 +102,7 @@ export function StockInput({
         const selectedStock = filteredSuggestions[highlightedIndex];
         onSearch(selectedStock.symbol);
         setInputValue(selectedStock.symbol);
-        setValidation(validateInput(selectedStock.symbol));
+        setError('');
         setShowDropdown(false);
         setHighlightedIndex(-1);
       } else {
@@ -124,18 +120,18 @@ export function StockInput({
       setShowDropdown(false);
       setHighlightedIndex(-1);
     }
-  }, [showDropdown, highlightedIndex, filteredSuggestions, validateInput, handleSearch, onSearch, isLoading, disabled]);
+  }, [showDropdown, highlightedIndex, filteredSuggestions, handleSearch, onSearch, isLoading, disabled]);
 
   // Handle suggestion selection
-  const handleSuggestionClick = useCallback((stock: typeof POPULAR_STOCKS[0]) => {
+  const handleSuggestionClick = useCallback((stock: StockSuggestion) => {
     if (isLoading || disabled) return;
     inputRef.current?.focus();
     setInputValue(stock.symbol);
-    setValidation(validateInput(stock.symbol));
+    setError('');
     setShowDropdown(false);
     setHighlightedIndex(-1);
     onSearch(stock.symbol);
-  }, [validateInput, isLoading, disabled, onSearch]);
+  }, [isLoading, disabled, onSearch]);
 
   // Handle input focus
   const handleFocus = useCallback(() => {
@@ -155,7 +151,7 @@ export function StockInput({
   // Clear input
   const handleClear = useCallback(() => {
     setInputValue('');
-    setValidation({ isValid: false, error: '', formattedValue: '' });
+    setError('');
     setShowDropdown(false);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
@@ -176,7 +172,7 @@ export function StockInput({
           className={cn(
             "relative flex items-center gap-1 w-full terminal-search rounded-xl border border-input p-1.5 text-sm",
             "transition-colors focus-within:border-[#0071e3] focus-within:ring-2 focus-within:ring-[#0071e3]/40",
-            validation.error && inputValue && "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
+            error && "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
             validation.isValid && "border-[#0071e3]",
             disabled && "cursor-not-allowed opacity-50"
           )}
@@ -192,9 +188,9 @@ export function StockInput({
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={showSuggestions && showDropdown}
-            aria-controls="stock-suggestions"
-            aria-activedescendant={showDropdown && highlightedIndex >= 0 ? `stock-suggestion-${highlightedIndex}` : undefined}
-            aria-invalid={Boolean(validation.error && inputValue)}
+            aria-controls={listId}
+            aria-activedescendant={showDropdown && highlightedIndex >= 0 ? `${listId}-${highlightedIndex}` : undefined}
+            aria-invalid={Boolean(error)}
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
@@ -228,7 +224,7 @@ export function StockInput({
         {/* Search Button */}
         <button
           onClick={handleSearch}
-          disabled={!validation.isValid || isLoading || disabled}
+          disabled={!query || isLoading || disabled || (searching && !validation.isValid)}
           className={cn(
             "h-10 shrink-0 px-3 sm:px-5 rounded-xl",
             "bg-[#0071e3] text-white hover:bg-[#0077ed]",
@@ -249,9 +245,9 @@ export function StockInput({
       </div>
 
       {/* Error Message */}
-      {validation.error && inputValue && (
-        <p className="mt-2 text-sm text-destructive">
-          {validation.error}
+      {error && (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
         </p>
       )}
 
@@ -259,7 +255,7 @@ export function StockInput({
       {showSuggestions && showDropdown && (
         <div
           ref={dropdownRef}
-          id="stock-suggestions"
+          id={listId}
           role="listbox"
           aria-label="Stock suggestions"
           className={cn(
@@ -267,12 +263,17 @@ export function StockInput({
             "max-h-60 overflow-y-auto"
           )}
         >
+          <div className="border-b border-border px-3 py-2 text-xs text-muted-foreground" role="status">
+            {searching ? 'Searching US companies…' : matches?.query === query && matches.limited
+              ? 'Company search is limited right now. You can still enter an exact ticker.'
+              : query ? 'US stocks & ETFs · 1–5 letter symbols' : 'Popular stocks · Search more companies by name or ticker'}
+          </div>
           {filteredSuggestions.length > 0 ? (
             <div className="py-1">
               {filteredSuggestions.map((stock, index) => (
                 <button
                   key={stock.symbol}
-                  id={`stock-suggestion-${index}`}
+                  id={`${listId}-${index}`}
                   role="option"
                   aria-selected={index === highlightedIndex}
                   onClick={() => handleSuggestionClick(stock)}
@@ -283,9 +284,9 @@ export function StockInput({
                   )}
                   type="button"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm">{stock.symbol}</span>
-                    <span className="text-xs text-muted-foreground truncate ml-2">
+                    <span className="min-w-0 text-xs text-muted-foreground truncate" title={stock.name}>
                       {stock.name}
                     </span>
                   </div>
@@ -294,7 +295,7 @@ export function StockInput({
             </div>
           ) : (
             <div className="px-3 py-2 text-sm text-muted-foreground">
-              No matching suggestions. Enter an exact ticker to search.
+              {searching ? 'Looking up matching symbols…' : 'No matching US listing. You can still try an exact ticker. Other markets are not supported yet.'}
             </div>
           )}
         </div>

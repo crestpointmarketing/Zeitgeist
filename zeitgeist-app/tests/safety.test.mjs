@@ -7,6 +7,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 
+const directoryFixture = (file, prefix = 'Q') => {
+  const header = file === 'nasdaqlisted' ? 'Symbol|Security Name|Market Category|Test Issue|Financial Status|Round Lot Size|ETF|NextShares'
+    : 'ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol';
+  const entries = Array.from({ length: 100 }, (_, i) => {
+    const symbol = prefix + String.fromCharCode(65 + Math.floor(i / 26), 65 + i % 26);
+    return file === 'nasdaqlisted' ? `${symbol}|Company ${i}|Q|N|N|100|N|N` : `${symbol}|Company ${i}|N|${symbol}|N|100|N|${symbol}`;
+  });
+  entries.push(file === 'nasdaqlisted' ? 'COST|Costco Wholesale Corporation|Q|N|N|100|N|N' : 'LLY|Eli Lilly and Company Common Stock|N|LLY|N|100|N|LLY');
+  return [header, ...entries, 'File Creation Time: 1013202618:00|||||||'].join('\r\n');
+};
+
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dependency = createRequire(import.meta.url);
 // Transpile the actual source, mocking only service boundaries. tsc is run separately.
@@ -1095,4 +1106,86 @@ test('inline chat errors preserve actionable authentication and quota messages',
   assert.equal(friendlyChatError(new Error('{"error":"Sign in to use this feature."}')),'Sign in to use this feature.');
   assert.equal(friendlyChatError(new Error('{"error":{"message":"Request limit reached."}}')),'Request limit reached.');
   assert.equal(friendlyChatError(new Error('Network unavailable')),'Network unavailable');
+});
+
+test('official directories make LLY and Eli Lilly searchable beyond popular suggestions', () => {
+  const {parseStockDirectory}=load('src/lib/stock-directory.ts');
+  const {searchStocks,resolveStockQuery}=load('src/lib/stock-search.ts');
+  const stocks=parseStockDirectory(directoryFixture('otherlisted'),'otherlisted');
+  for(const query of ['LLY','lly','Eli Lilly','Lilly and Company']) assert.equal(searchStocks(stocks,query)[0].symbol,'LLY');
+  assert.equal(resolveStockQuery('Eli Lilly',stocks),'LLY');
+  assert.equal(resolveStockQuery('LLY',stocks),'LLY');
+  assert.equal(searchStocks(stocks,'not a listed company').length,0);
+  assert.equal(searchStocks(stocks,'礼来').length,0);
+  assert.equal(searchStocks(stocks,'BRK.B').length,0);
+  assert.equal(searchStocks(stocks,'00700').length,0);
+});
+
+test('directory parser excludes test issues, footers and unsupported symbol formats', () => {
+  const {parseStockDirectory}=load('src/lib/stock-directory.ts');
+  const text=directoryFixture('otherlisted')+'\nTEST|Test issue|N|TEST|N|100|Y|TEST\nBRK.B|Berkshire|N|BRK.B|N|100|N|BRK.B\n00700|Hong Kong|N|00700|N|100|N|00700';
+  const stocks=parseStockDirectory(text,'otherlisted');
+  assert.equal(stocks.length,101);
+  assert.ok(!stocks.some(s=>['TEST','BRK.B','00700'].includes(s.symbol)));
+  assert.throws(()=>parseStockDirectory('<html>Unavailable</html>','otherlisted'));
+});
+
+test('exact ticker wins over funds mentioning that company and ambiguous names need selection', () => {
+  const {searchStocks,resolveStockQuery}=load('src/lib/stock-search.ts');
+  const stocks=[{symbol:'LLYX',name:'Fund linked to Eli Lilly'},{symbol:'LLY',name:'Eli Lilly and Company'},{symbol:'LLYZ',name:'Eli Lilly Fund'}];
+  assert.equal(searchStocks(stocks,'LLY')[0].symbol,'LLY');
+  assert.equal(resolveStockQuery('LLY',stocks),'LLY');
+  assert.equal(resolveStockQuery('Eli Lilly',stocks),'Eli Lilly');
+  assert.equal(resolveStockQuery('AMD',stocks),'AMD');
+  assert.ok(searchStocks(stocks,'lilly',2).length<=2);
+});
+
+test('directory downloads are coalesced and cached across different searches', async () => {
+  const {createStockDirectoryLoader}=load('src/lib/stock-directory.ts');
+  let count=0,time=0;
+  const read=createStockDirectoryLoader(async url=>{count++;return new Response(directoryFixture(url.includes('nasdaqlisted')?'nasdaqlisted':'otherlisted',url.includes('nasdaqlisted')?'Q':'R'));},()=>time);
+  const results=await Promise.all([read(),read(),read()]);
+  assert.equal(count,2);assert.equal(results[0].limited,false);assert.equal(results[0].stocks.length,202);
+  await read();assert.equal(count,2);
+  time=21_600_001;await read();assert.equal(count,4);
+});
+
+test('partial directory outage is explicit and recovers without disabling ticker entry', async () => {
+  const {createStockDirectoryLoader}=load('src/lib/stock-directory.ts');
+  let time=0,fail=true;
+  const read=createStockDirectoryLoader(async url=>{
+    if(fail&&url.includes('nasdaqlisted'))throw Error('Offline');
+    return new Response(directoryFixture(url.includes('nasdaqlisted')?'nasdaqlisted':'otherlisted'));
+  },()=>time);
+  const partial=await read();assert.equal(partial.limited,true);assert.ok(partial.stocks.some(s=>s.symbol==='LLY'));
+  fail=false;time=60_001;assert.equal((await read()).limited,false);
+});
+
+test('complete directory outage retains prior directory and labels limited results', async () => {
+  const {createStockDirectoryLoader}=load('src/lib/stock-directory.ts');
+  let time=0,fail=false;
+  const read=createStockDirectoryLoader(async url=>{if(fail)throw Error('Offline');return new Response(directoryFixture(url.includes('nasdaqlisted')?'nasdaqlisted':'otherlisted'));},()=>time);
+  const previous=await read();time=21_600_001;fail=true;
+  const fallback=await read();assert.equal(fallback.limited,true);assert.equal(fallback.stocks.length,previous.stocks.length);
+  const cold=await createStockDirectoryLoader(async()=>{throw Error('Offline');})();
+  assert.equal(cold.limited,true);assert.ok(cold.stocks.length>0);
+});
+
+test('public directory route bounds input and returns only matched public metadata', async () => {
+  let count=0;
+  const {GET}=load('src/app/api/stock-search/route.ts',{'@/lib/stock-directory':{getStockDirectory:async()=>{count++;return {stocks:[{symbol:'LLY',name:'Eli Lilly'}],limited:false};}}});
+  assert.equal((await GET(new Request('https://test/api/stock-search?q='+ 'x'.repeat(81)))).status,400);
+  assert.equal(count,0);
+  const results=await (await GET(new Request('https://test/api/stock-search?q=Lilly'))).json();
+  assert.equal(results.results[0].symbol,'LLY');assert.equal(results.limited,false);
+});
+
+test('AI diagnostics distinguish credentials, provider limits, billing and model failures without leaking bodies', () => {
+  const {aiServiceError}=load('src/lib/ai-service-error.ts');
+  for(const [input,code] of [[{status:401},'provider_auth'],[{statusCode:403},'provider_permission'],[{status:429},'provider_capacity'],[{status:529},'provider_capacity'],[{status:400,message:'Credit balance too low'},'provider_billing'],[{status:404},'provider_model'],[{message:'Request timed out'},'provider_timeout']]) {
+    const failure=aiServiceError(input);assert.equal(failure.code,code);assert.ok(failure.status>=500);
+  }
+  const unknown=aiServiceError({status:500,message:'Secret provider body sk-PRIVATE',headers:{key:'private'}});
+  assert.doesNotMatch(unknown.message,/PRIVATE|Secret provider|headers/);
+  assert.equal(unknown.code,'analysis_unavailable');
 });

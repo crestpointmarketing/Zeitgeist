@@ -9,6 +9,7 @@ import { analyzeStockData, ANALYSIS_MODEL } from '@/lib/anthropic';
 import { analysisIdentity, stockEvidence, CALCULATION_VERSION, type StockSnapshot } from '@/lib/stock-evidence';
 import { fingerprint, claimGeneration } from '@/lib/generation-cache';
 import type { StockAnalysis, CompanyDetails } from '@/types/stock';
+import { AIServiceError } from '@/lib/ai-service-error';
 
 type Account = Awaited<ReturnType<typeof requireAccount>>;
 
@@ -78,6 +79,7 @@ export async function analyzeSnapshot(account: Account, id: string) {
       }
     }
     if (error instanceof RequestError) throw error;
+    if (error instanceof AIServiceError) throw new RequestError(error.message, error.status);
     throw new RequestError('AI analysis could not be completed or did not pass validation. Your market data is available; retry analysis separately.', 502);
   } finally { await release?.(); }
 }

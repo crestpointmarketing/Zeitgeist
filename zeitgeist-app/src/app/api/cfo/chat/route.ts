@@ -7,6 +7,7 @@ import { readJson, requireAccount, reserveUsage, RequestError } from '@/lib/api-
 import { claimGeneration, fingerprint } from '@/lib/generation-cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {cfoContext} from '@/lib/cfo-context';
+import { aiServiceError } from '@/lib/ai-service-error';
 
 export const maxDuration = 60;
 
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
         } finally { await releaseLease(); }
       },
     });
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({ onError: error => aiServiceError(error).message });
   } catch (error) {
     await failClaim?.().catch(() => {});
     await release?.();
