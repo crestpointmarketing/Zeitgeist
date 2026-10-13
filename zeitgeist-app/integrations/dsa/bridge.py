@@ -48,7 +48,7 @@ def forecast(ticker: str, authorization: str = Header('')):
 
 
 @app.get('/v1/research/{ticker}')
-def research(ticker: str, model: str = Query(..., pattern='^[a-z_]{3,40}$'), authorization: str = Header('')):
+def research(ticker: str, model: str = Query(..., pattern='^[a-z0-9_]{3,40}$'), authorization: str = Header('')):
     return run_request(ticker, 1100, authorization, 'research', model)
 
 

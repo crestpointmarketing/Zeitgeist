@@ -47,6 +47,37 @@ const current = { ...previous, o: 110, c: 105, h: 112, l: 104, t: Date.parse('20
 const stock = quote.stockFromBars('AAPL', current, previous, 'unknown');
 const schema = load('src/lib/analysis-schema.ts');
 
+test('reloaded unanswered questions and empty assistant messages retain a retry entry', () => {
+  const React = dependency('react'), {renderToStaticMarkup} = dependency('react-dom/server');
+  const {ChatRecovery} = load('src/components/cfo/chat-recovery.tsx');
+  const question = {id:'original-id',role:'user',parts:[{type:'text',text:'Explain cash flow.'}]};
+  for (const messages of [[question],[question,{id:'empty',role:'assistant',parts:[]}]]) {
+    const html = renderToStaticMarkup(React.createElement(ChatRecovery,{messages,busy:false,stopped:false,onRetry(){}}));
+    assert.match(html,/No completed answer is saved/);
+    assert.match(html,/Retry answer/);
+    assert.equal(messages[0].id,'original-id');
+  }
+});
+
+test('stopped partial replies explain recovery without duplicate controls during streaming or errors', () => {
+  const React = dependency('react'), {renderToStaticMarkup} = dependency('react-dom/server');
+  const {ChatRecovery} = load('src/components/cfo/chat-recovery.tsx');
+  const messages = [{id:'u',role:'user',parts:[{type:'text',text:'Question'}]},{id:'a',role:'assistant',parts:[{type:'text',text:'Partial reply'}]}];
+  const render = extra => renderToStaticMarkup(React.createElement(ChatRecovery,{messages,busy:false,stopped:true,onRetry(){},...extra}));
+  assert.match(render({}),/Response stopped/);
+  for (const extra of [{busy:true},{error:new Error('auth failed')},{stopped:false},{messages:[]}]) assert.equal(render(extra),'');
+});
+
+test('research HTTP failures do not misdiagnose rejected models as insufficient history', async () => {
+  for (const [status,pattern] of [[422,/rejected this stock or model/],[403,/authenticate/],[503,/service may have failed/],[429,/Another experiment/],[504,/time limit/]]) {
+    const {getResearch} = load('src/lib/research-provider.ts',{
+      __env:{DSA_BASE_URL:'https://bridge.example',DSA_SERVICE_TOKEN:'test-only'},
+      __fetch:async()=>new Response('{}',{status}),
+    });
+    await assert.rejects(getResearch('AAPL','lstm_seq2seq'),pattern);
+  }
+});
+
 test('gap-up session compares against previous close across a weekend', () => {
   assert.equal(stock.change, 5);
   assert.equal(stock.change_percent, 5);

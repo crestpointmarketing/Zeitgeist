@@ -21,6 +21,26 @@ class BridgeTests(unittest.TestCase):
         self.client = TestClient(app)
         self.headers = {'Authorization': 'Bearer ' + os.environ['DSA_SERVICE_TOKEN']}
 
+    def test_every_catalog_model_passes_the_http_parameter_boundary(self):
+        from pathlib import Path
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'prediction'))
+        from research_engine import MODEL_IDS
+        with patch('bridge.run_request', return_value={'ok': True}) as run:
+            for model in MODEL_IDS:
+                with self.subTest(model=model):
+                    response = self.client.get('/v1/research/AAPL', params={'model': model}, headers=self.headers)
+                    self.assertEqual(response.status_code, 200)
+                    run.assert_called_with('AAPL', 1100, self.headers['Authorization'], 'research', model)
+
+    def test_digit_support_does_not_bypass_model_allowlist(self):
+        with patch('bridge.subprocess.run') as run:
+            for model in ('lstm2', 'unknown_123', 'constructor'):
+                with self.subTest(model=model):
+                    response = self.client.get('/v1/research/AAPL', params={'model': model}, headers=self.headers)
+                    self.assertEqual(response.status_code, 400)
+            run.assert_not_called()
+
     def test_auth_and_symbol_validation_do_not_start_worker(self):
         with patch('bridge.subprocess.run') as run:
             self.assertEqual(self.client.get('/v1/history/AAPL').status_code, 401)

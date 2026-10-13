@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
@@ -11,6 +11,7 @@ import { uiMessageText } from "@/types/cfo";
 import { boundedMessages } from '@/lib/chat-input';
 import { researchMessageDisplay } from '@/lib/research-brief';
 import { ChatComposer } from "./chat-composer";
+import { ChatRecovery } from './chat-recovery';
 
 const SUGGESTIONS = [
   { label: 'Understand a concept', text: 'Explain EBITDA in plain English' },
@@ -77,6 +78,9 @@ export function ChatThread({
 
   const streaming = status === "submitted" || status === "streaming";
   const isEmpty = messages.length === 0;
+  const [stopped, setStopped] = useState(false);
+  const retryAnswer = () => { setStopped(false); clearError(); void regenerate(); };
+  const sendText = (text: string) => { setStopped(false); clearError(); void sendMessage({ text }); };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -115,7 +119,7 @@ export function ChatThread({
                 {SUGGESTIONS.map((suggestion) => (
                   <button
                     key={suggestion.label}
-                    onClick={() => sendMessage({ text: suggestion.text })}
+                    onClick={() => sendText(suggestion.text)}
                     className={cn(
                       "rounded-2xl border border-border bg-card p-4 text-left text-foreground transition-colors hover:border-primary/60 hover:bg-accent",
                       compact ? "text-[13px]" : "text-sm"
@@ -175,16 +179,14 @@ export function ChatThread({
               <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 {friendlyError(error)}
                 <button
-                  onClick={() => {
-                    clearError();
-                    regenerate();
-                  }}
+                  onClick={retryAnswer}
                   className="ml-3 font-medium text-primary hover:underline"
                 >
                   Retry
                 </button>
               </div>
             )}
+            <ChatRecovery messages={messages} busy={streaming} error={error} stopped={stopped} onRetry={retryAnswer}/>
           </div>
         )}
       </div>
@@ -198,8 +200,8 @@ export function ChatThread({
       >
         <div className={cn("mx-auto", compact ? "max-w-full" : "max-w-2xl")}>
           <ChatComposer
-            onSend={(text) => sendMessage({ text })}
-            onStop={stop}
+            onSend={sendText}
+            onStop={() => { setStopped(true); void stop(); }}
             streaming={streaming}
             autoFocus={autoFocus}
             compact={compact}
