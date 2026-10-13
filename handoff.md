@@ -4,15 +4,15 @@
 
 ### 最新补丁：公司名称搜索范围与 AI 认证错误
 
-分支 `codex/stock-search-coverage`，基于 `d877ecc` / `v2026.10.04-auth-links`。发布后固定到新标签 `v2026.10.13-stock-search`；旧标签不移动。当前 AI 恢复仍须以真实接口复测为准，不能因搜索修复上线就标记 AI 可用。
+分支 `codex/stock-search-coverage`，基于 `d877ecc` / `v2026.10.04-auth-links`。功能源码为 `75e0d9645af7b478d2eda1463bc77efe6dea7920`；固定标签 `v2026.10.13-stock-search` 包含随后补充的本交接记录，应用源码相同；旧标签不移动。用户更新 Production 密钥后重新部署：[Vercel 5n1zNpZy8](https://vercel.com/crestpointmarketings-projects/zeitgeist/5n1zNpZy8sMSTZNdGmcKW4tuR2XG)，已确认 Ready / Production / 正式域名绑定。LLY 分析与新的 CFO 对话均已实际恢复。
 
 - 用户报告 LLY 无法查询。2026-10-13 使用 demo 在正式站实测 LLY / COST / AMD / KO 行情接口全部 HTTP 200，各返回 22 条日线；原搜索仅有 15 家公司的静态名称建议，容易误认为只支持热门股票。
 - 新增公共 `/api/stock-search?q=`，只返回公开证券目录字段，价格与 AI 接口仍保持鉴权。目录取自 Nasdaq Trader 官方 `nasdaqlisted.txt` / `otherlisted.txt`，按代码和公司名称匹配；精确代码优先，最多 12 条。空输入保留 6 条快捷建议。没有新增 API 密钥或数据库迁移。
 - 目录每 6 小时缓存、并发请求合并，固定上游地址与超时；测试证券及不支持的代码格式排除。上游故障时保留可用目录/热门列表并明确提示搜索范围暂时受限，直接输入代码仍可用；故障一分钟后可重试。前端 250ms 防抖、取消旧请求、避免旧查询覆盖新结果，支持上下方向键与 Enter。
 - 当前仍支持 **1–5 位英文字母的美股/ETF 代码**。此补丁没有将港股、A 股、带点号或连字符的 share-class 代码接入行情、预测或数据库。不能把目录结果等同于保证每只证券都有完整历史/财报。
-- 同日检查当前本机配置的 Anthropic 密钥返回 **401 `authentication_error` / `invalid x-api-key`**，正式站 LLY 分析返回 502。401 只能证明密钥被拒绝，不能断言是过期、撤销或填写错误。已请用户在 Vercel Production 更新 `ANTHROPIC_API_KEY`，密钥不进入聊天/Git；demo 应用额度豁免不能绕过上游认证。
+- 同日修复前，本机配置的 Anthropic 密钥返回 **401 `authentication_error` / `invalid x-api-key`**，正式站 LLY 分析返回 502。401 只能证明密钥被拒绝，不能断言是过期、撤销或填写错误。用户随后在 Vercel Production 更新 `ANTHROPIC_API_KEY`，重新部署后 LLY 分析 HTTP 200 / cached false，新 CFO 消息 HTTP 200 且包含流式文本、无错误事件。密钥没有进入聊天/Git，也没有从 Vercel 导出到本机；**本地 `.env.local` 仍是旧密钥，本地 AI 调用需自行同步有效密钥**。demo 应用额度豁免不能绕过上游认证。
 - AI 分析和 CFO 增加安全分类提示：认证、权限、上游限流、余额、模型配置、超时；不向用户暴露原始 provider body 或凭据。分析保留结构化错误到路由，避免全部折叠为泛化 502。认证错误时保留价格，明确需管理员更新密钥。
-- 133 项 Node 回归通过（包括新目录解析、LLY/公司名、去重缓存、上游部分/全部故障恢复及 AI 错误分类）；本轮发布与浏览器验收证据保存在忽略目录 `zeitgeist-app/reports/search-release-proof.json`。线上状态须结合该证据与远程标签/正式域名核对。原 15 条列表继续作为降级和热门建议，不是查询白名单。
+- 133 项 Node 回归、类型检查和生产构建通过；正式站 14 项接口验收通过（包含公开目录、输入范围、行情鉴权、demo 登录、LLY 22 条日线、新生成 AI 分析及 CFO 新回答）。浏览器验证公司名/代码、键盘选择/Enter/鼠标提交，以及 320px 无横向溢出。忽略目录的 `search-release-proof.json` / `search-release-api.json` 记录验收，`search-production.png` / `lly-ai-restored.png` 保存正式站截图。原 15 条列表继续作为降级和热门建议，不是查询白名单。
 
 目录字段说明：[Nasdaq Trader Symbol Directory Definitions](https://www.nasdaqtrader.com/trader.aspx?id=symboldirdefs)。
 
