@@ -2,6 +2,20 @@
 
 更新时间：2026-10-13（America/Chicago）。本文是下一次打开项目时的首要入口。
 
+### 最新验收：demo 全功能回归与修复
+
+分支 `codex/full-demo-regression`，基于 `75a53b8` / `v2026.10.13-stock-search`。固定版本使用新标签 `v2026.10.13-full-regression`（最终发布验证后建立）；不移动历史标签。完整范围、限制和验收证据见 [FULL-REGRESSION-2026-10-13.md](zeitgeist-app/FULL-REGRESSION-2026-10-13.md)。
+
+- 实际使用 demo 走过介绍/视频、登录退出、公司名称搜索、六股票行情、财报新闻、AI Brief、股票追问和 CFO 持久化、收藏、后台四类任务、预测/研究实验、前瞻记录、导航与 390/320px 适配。**173 项自动化通过、118/118 正式接口检查通过，29 个研究模块逐项实跑及协议校验通过**；Next 生产构建含 lint/类型检查通过。
+- P1：DSA bridge 的模型查询正则错误排除 `seq2seq` 的数字，导致六个编码器/解码器模块 HTTP 422。已允许数字且保留精确模型白名单；新增真实 FastAPI HTTP 入口的全目录回归。Python 直接跑模型不能替代 HTTP 入口验收。
+- P2：CFO 和股票追问的未完成回答在刷新后缺少重试入口。共享 ChatRecovery 显示明确状态与 Retry answer，同一问题 ID 重试，不自动生成重复问题。正式站从保存的失败问题恢复回答，再刷新仍完整保留。主动停止只停止等待，不保证取消服务器已开始的工作。
+- P2/P3：研究错误区分认证/非法请求/数据或运行失败，不再一概声称不足 400 日历史；排队详情显示 Queued，运行中的时长占位显示 Processing…，完成才展示实际处理时间。
+- 核心修复提交 `aab6839`，正式部署 [DujWx4TMb](https://vercel.com/crestpointmarketings-projects/zeitgeist/DujWx4TMbwDXAzMdqnSmbG38evqX) Ready；排队补丁 `974d205`，正式部署 [FFHvDunF3](https://vercel.com/crestpointmarketings-projects/zeitgeist/FFHvDunF3gqEEV47Xvcruzv1whzw) Ready。最终交接提交包含运行时长文字，最终 source SHA/部署证据在本机忽略目录 `reports/full-demo-20261013-release.json`。同一个 Git SHA 有 Preview/Production 两次部署，必须核对正式环境和域名。
+- 四类队列由正常定时 worker 实际执行完成，未手工伪造完成。2026-10-13 23:13 UTC 的验收快照为 5 个本日任务完成、失败 0、活跃 0，含一次 NVDA 策略测试；收尾另测试 COST 的 ARIMA/风险模块。组合采用 LLY/MSFT 40%/60%，返回 60 个留出观测，研究结果传入 CFO 并保存上下文成功。
+- **前瞻记录已有成熟结果**：本轮全量接口复测看到 35 条本人记录、8 条核对结果，包含未发布候选；不能再引用下方历史段落的“尚无成熟记录”作为当前状态。合格预测的成熟样本仍不足，不能将单次方向命中当作可靠准确率；模型参数与 5% 双基线发布门槛未改。
+- 生产 AI 密钥有效；本地 `.env.local` 仍是旧密钥，本地认证失败可复现但不能代表线上。未导出 Production 密钥、未修改账户密码/权限、无数据库迁移。
+- 边界：本轮没有再次发送邮件或执行不可恢复的对话删除；浏览器导出验证了 CSV/JSON 内容，下载事件未返回落盘路径；并非跨浏览器/实体手机、压力或独立渗透认证。测试对话/研究和前瞻记录保留，临时收藏变更恢复。后续查报告而非笼统认为“所有可能问题都已消除”。
+
 ### 最新补丁：公司名称搜索范围与 AI 认证错误
 
 分支 `codex/stock-search-coverage`，基于 `d877ecc` / `v2026.10.04-auth-links`。功能源码为 `75e0d9645af7b478d2eda1463bc77efe6dea7920`；固定标签 `v2026.10.13-stock-search` 包含随后补充的本交接记录，应用源码相同；旧标签不移动。用户更新 Production 密钥后重新部署：[Vercel 5n1zNpZy8](https://vercel.com/crestpointmarketings-projects/zeitgeist/5n1zNpZy8sMSTZNdGmcKW4tuR2XG)，已确认 Ready / Production / 正式域名绑定。LLY 分析与新的 CFO 对话均已实际恢复。
